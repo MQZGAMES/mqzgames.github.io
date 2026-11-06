@@ -2,10 +2,35 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>MQZGAMES - Jogos</title>
 <meta name="description" content="Todos os jogos da MQZGAMES em um só lugar. Escolha um e jogue no navegador.">
+<meta name="theme-color" content="#0f1020">
+<meta name="color-scheme" content="dark light">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MQZGAMES">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
+  /* Experiência de app: sem zoom, sem seleção de texto, sem arrastar imagens */
+  html, body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
+  img, svg { -webkit-user-drag: none; user-drag: none; }
+  input, textarea { -webkit-user-select: text; user-select: text; }
+  body {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
   :root {
     --bg: #0f1020;
     --card: #181a30;
@@ -168,5 +193,28 @@
 <footer>
   Novo jogo? Ele entra aqui. Código de cada um no <a href="https://github.com/MQZGAMES">GitHub da MQZGAMES</a>.
 </footer>
+<script>
+  // Bloqueia pinça/zoom (iOS e Android) e o duplo toque que dá zoom
+  ["gesturestart", "gesturechange", "gestureend"].forEach((ev) =>
+    document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+  let lastTouch = 0;
+  document.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - lastTouch < 300) e.preventDefault();
+    lastTouch = now;
+  }, { passive: false });
+  document.addEventListener("touchmove", (e) => {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
+  document.addEventListener("selectstart", (e) => {
+    if (!e.target.closest || !e.target.closest("input, textarea")) e.preventDefault();
+  });
+
+  // Service worker: permite instalar como app e abrir offline
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+</script>
 </body>
 </html>
