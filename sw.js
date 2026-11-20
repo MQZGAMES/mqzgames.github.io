@@ -1,7 +1,9 @@
 // Service worker mínimo: deixa o catálogo instalável e abrir offline.
 // Os jogos (outros repositórios/caminhos) são buscados direto da rede.
-const CACHE = "mqzgames-catalogo-v1";
+const CACHE = "mqzgames-catalogo-v2";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
+
+const CATALOG_PATHS = new Set(SHELL.map((file) => new URL(file, self.registration.scope).pathname));
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
@@ -10,20 +12,23 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith("mqzgames-catalogo-") && k !== CACHE).map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET" || new URL(e.request.url).origin !== self.location.origin) return;
+  const url = new URL(e.request.url);
+  if (e.request.method !== "GET" || url.origin !== self.location.origin || !CATALOG_PATHS.has(url.pathname)) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        if (res.ok) {
+          const copy = res.clone();
+          e.waitUntil(caches.open(CACHE).then((cache) => cache.put(e.request, copy)));
+        }
         return res;
       })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match("./index.html")))
+      .catch(() => caches.open(CACHE).then(async (cache) => (await cache.match(e.request, { ignoreSearch: true })) || (await cache.match("./index.html")) || Response.error()))
   );
 });
