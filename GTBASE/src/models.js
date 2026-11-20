@@ -6,9 +6,10 @@ const sphere = new T.SphereGeometry(1, 10, 7);
 const cylinder = new T.CylinderGeometry(1, 1, 1, 12);
 const materials = new Map();
 const characterMat = new T.MeshStandardMaterial({vertexColors:true,roughness:.82});
+const paintMat = new T.MeshStandardMaterial({vertexColors:true,roughness:.36,metalness:.18});
 
-function combineCharacter(group) {
-  const parts=group.children.filter(child=>child instanceof T.Mesh);
+function combineParts(group,parts,material=characterMat) {
+  if (!parts.length) return;
   const geometries=parts.map(part=>{
     part.updateMatrix();
     const geometry=part.geometry.index?part.geometry.toNonIndexed():part.geometry.clone();
@@ -25,12 +26,13 @@ function combineCharacter(group) {
     return geometry;
   });
   group.remove(...parts);
-  const mesh=new T.Mesh(mergeGeometries(geometries),characterMat);
+  const mesh=new T.Mesh(mergeGeometries(geometries),material);
   mesh.receiveShadow=true;
   group.add(mesh);
   for(const geometry of geometries) geometry.dispose();
 }
 
+const meshes = group => group.children.filter(child=>child instanceof T.Mesh);
 export function piece(group, shape, color, x, y, z, w, h, d, shines = false) {
   const key = color + ':' + shines;
   if (!materials.has(key)) materials.set(key, new T.MeshStandardMaterial({
@@ -92,13 +94,13 @@ export function person(scene, shirt, trousers, skin, hero = false) {
   piece(pistol,'box',0x283639,0,0,.075,.085,.08,.29,true);
   piece(pistol,'box',0x283639,0,-.055,0,.072,.127,.067);
   arms[1].add(pistol);
-  for (const part of [body,...arms,...legs,pistol]) combineCharacter(part);
+  for (const part of [body,...arms,...legs,pistol]) combineParts(part,meshes(part));
   pistol.visible = false;
   scene.add(root);
   return {root, body, arms, legs, pistol, stride:0};
 }
 
-export function animatePerson(person, dt, speed, aim, gun) {
+export function animatePerson(person, dt, speed, aim, gun, punch=0) {
   person.stride += dt * (4.6 + speed * 1.65);
   const swing = Math.sin(person.stride) * Math.min(.78,speed * .15);
   person.body.position.y = Math.abs(swing) * .072;
@@ -106,6 +108,12 @@ export function animatePerson(person, dt, speed, aim, gun) {
   person.legs[1].rotation.x = -swing;
   person.arms[0].rotation.x = aim ? -.87 : -swing * .76;
   person.arms[1].rotation.x = aim ? -1.47 : swing * .76;
+  if(punch>0) {
+    const extension=Math.sin(punch*Math.PI);
+    person.arms[0].rotation.x=-.64;
+    person.arms[1].rotation.x=-.50-extension*1.11;
+    person.body.rotation.y=-extension*.37;
+  } else person.body.rotation.y=0;
   person.pistol.rotation.x = aim ? 1.47 : 0;
   person.pistol.visible = gun;
 }
@@ -118,7 +126,7 @@ export function coupe(scene, color, police = false) {
   const add = (shape, shade, x,y,z,w,h,d, shiny = false) => piece(body,shape,shade,x,y,z,w,h,d,shiny);
   add('box',0x252a2d,0,.44,0,1.86,.40,4.14);
   add('box',color,0,.72,0,1.94,.43,4.24,true);
-  add('box',color,0,.94,1.23,1.90,.15,1.55,true);
+  const hood=add('box',color,0,.94,1.23,1.90,.15,1.55,true);
   add('box',color,0,.93,-1.51,1.89,.14,1.10,true);
   const windows = new T.BufferGeometry();
   const vertices = [
@@ -156,11 +164,25 @@ export function coupe(scene, color, police = false) {
     lamps.push(add('box',0xed4736,-.33,1.62,-.32,.55,.14,.25));
     lamps.push(add('box',0x53b9ee,.33,1.62,-.32,.55,.14,.25));
   }
+  const bodyParts=meshes(body).filter(part=>part!==cabin && part!==hood && !lamps.includes(part));
+  combineParts(body,bodyParts.filter(part=>part.material.metalness===0));
+  combineParts(body,bodyParts.filter(part=>part.material.metalness>0),paintMat);
+  for(const wheel of wheels) combineParts(wheel,meshes(wheel));
   body.traverse(object=>{
     if(object instanceof T.Mesh) object.castShadow=false;
   });
+  const smoke=new T.Group();
+  const cloudMaterial=new T.MeshBasicMaterial({color:0x655f58,transparent:true,opacity:.29,depthWrite:false});
+  for(let i=0;i<3;i++) {
+    const cloud=new T.Mesh(sphere,cloudMaterial);
+    smoke.add(cloud);
+  }
+  smoke.position.set(0,1.04,1.25);
+  smoke.visible=false;
+  root.add(smoke);
   scene.add(root);
-  return {root, body, wheels, lamps, speed:0, angle:0, x:0,z:0};
+  return {root,body,wheels,lamps,hood,smoke,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
+    steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,smokeTime:0};
 }
 
 export function poseCar(car, dt, steer = 0) {
@@ -169,5 +191,16 @@ export function poseCar(car, dt, steer = 0) {
   car.body.rotation.z += (steer * Math.min(.09,Math.abs(car.speed)*.004) - car.body.rotation.z) * Math.min(1,dt*8);
   for (const wheel of car.wheels) {
     wheel.rotateX(car.speed * dt / .41);
+  }
+  car.hood.rotation.x=(100-car.integrity)*.0031;
+  car.hood.rotation.z=(100-car.integrity)*.0013;
+  car.smoke.visible=car.integrity<43;
+  if(car.smoke.visible) {
+    car.smokeTime+=dt;
+    car.smoke.children.forEach((cloud,i)=>{
+      const phase=(car.smokeTime*(car.integrity<=0?.72:1.04)+i/3)%1;
+      cloud.position.set(Math.sin(i*3.9+phase*3)*phase*.4,phase*1.85,-phase*.58);
+      cloud.scale.setScalar(.12+phase*.32);
+    });
   }
 }

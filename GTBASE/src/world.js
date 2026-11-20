@@ -66,7 +66,7 @@ export function createWorld(scene) {
   }
   function blockBox(x,y,z,w,h,d,color) {
     box(x,y,z,w,h,d,color,true);
-    solid.push({x,z,w,d});
+    solid.push({x,z,w,d,h:y+h/2});
   }
   function tree(x,z,palm=false) {
     const height = 3.25 + random()*2.65;
@@ -81,7 +81,7 @@ export function createWorld(scene) {
         draw('foliage',x+(random()-.5)*2,height+(random()-.3)*1.6,z+(random()-.5)*2,1+random()*.7,1.15,1.35,pick([0x466b50,0x668551,0x87a45c]),true,random()*6);
       }
     }
-    solid.push({x,z,w:.45,d:.45});
+    solid.push({x,z,w:.45,d:.45,h:.9*height});
   }
   function facadeText(label,x,y,z,rotation,color=0x1b3a37) {
     const canvas = document.createElement('canvas');
@@ -104,7 +104,7 @@ export function createWorld(scene) {
     mesh.rotation.y=rotation;
     scene.add(mesh);
   }
-  function building(x,z,w,d,h,color,shop,label) {
+  function building(x,z,w,d,h,color,shop,label,armory) {
     blockBox(x,h/2+.15,z,w,h,d,color);
     box(x,h+.18,z,w+.32,.28,d+.32,trim,true);
     box(x,h+.34,z,w-.2,.14,d-.2,0x6e5c55,true);
@@ -135,7 +135,13 @@ export function createWorld(scene) {
           if (row>0 && random()>.88) box(wx,y-.36,wz,.55,.40,.35,0xacafa3,false,angle);
         }
       }
-      if (front && angle===0) {
+      if (armory && angle===Math.PI/2) {
+        box(px,1.33,pz,1.57,2.34,.26,0x183832,false,angle);
+        box(px+.14,1.52,pz,1.28,1.51,.11,0x477168,false,angle);
+        box(px+.19,1.22,pz+.48,.075,.20,.08,0xf0ed93);
+        box(px+.64,2.79,pz,4.9,.22,.78,0x435947,true,angle);
+        facadeText('LOJA DE ARMAS',px+.38,3.58,pz,angle,0x315541);
+      } else if (front && angle===0) {
         box(px,1.13,pz,.94,1.94,.24,iron,false,angle);
         if (shop) {
           box(px,2.64,pz+.68,w+.16,.19,1.45,0x6d392c,true);
@@ -205,7 +211,8 @@ export function createWorld(scene) {
             const h=pick([3.4,5.65,6.2,8.9,9.5,11.45]);
             const shop=dz>0 && (dx<0 || z===0);
             const label=shop?pick(['CAFÉ SOL','OFICINA 19','MERCADO BRASA','ARMAZÉM LUZ','BAR DO PORTO']):null;
-            building(x+dx,z+dz,8.5+random(),7.6+random(),h,pick(colors),shop,label);
+            const armory=x===0&&z===0&&dx>0&&dz<0;
+            building(x+dx,z+dz,8.5+random(),7.6+random(),h,pick(colors),shop,label,armory);
           }
         }
         tree(x+11,z-10,random()>.37);
@@ -256,7 +263,7 @@ export function createWorld(scene) {
     piece(root,'box',iron,0,.50,0,.1,.97,.10);
     piece(root,'box',iron,0,.06,0,.58,.12,.54);
     scene.add(root);
-    return {x,z,root,plate,hit:false};
+    return {x,z,root,plate,hit:false,resetAfter:0};
   });
   const marker = new T.Group();
   const ring = new T.Mesh(new T.RingGeometry(1.60,1.85,40),new T.MeshBasicMaterial({

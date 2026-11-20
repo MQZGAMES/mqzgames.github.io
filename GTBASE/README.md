@@ -1,10 +1,10 @@
 # GTBASE
 
-Jogo 3D original de ação em mundo aberto, ambientado no bairro fictício Vila Brasa. Inclui uma missão de introdução e exploração livre.
+Jogo 3D original de ação em mundo aberto, ambientado no bairro fictício Vila Brasa. A partida começa em exploração livre.
 
-## Briefing da v1
+## Prompt da atualização
 
-> Crie GTBASE, um jogo 3D original em terceira pessoa para navegador. Priorize celulares com controles multitoque, interface adaptável e qualidade gráfica ajustável. Dê suporte a teclado e mouse e a controle Xbox com mapeamento padrão. Concentre o mundo em um bairro brasileiro fictício, com um personagem jogável, pedestres animados, um modelo de carro com pinturas distintas e uma pistola fictícia. Permita andar, correr, pegar um carro, dirigir, fugir de uma patrulha e atirar no estande. Use uma missão curta para ensinar os controles e libere a exploração após a conclusão. Crie cenário, personagens e veículos próprios, com iluminação de fim de tarde, áudio e mapa. Publique no catálogo da MQZGames.
+> Atualize GTBASE para começar em exploração livre. Mantenha o bairro 3D original Vila Brasa, o visual de fim de tarde, os controles multitoque, teclado e mouse, e o mapeamento Xbox. Adicione uma loja de armas com pistola e reposição de munição. Permita atirar pela cidade e dar socos. Pedestres devem reagir, fugir e cair ao receber dano, com a patrulha reagindo a crimes. Faça mais cupês circularem por rotas distintas, com curvas, frenagem para obstáculos, distância entre carros e prioridade nos cruzamentos. Dê ao carro aceleração, inércia, derrapagem no freio de mão e colisões contra cenário e veículos que transfiram impulso, reduzam a integridade e possam inutilizar o motor. Mostre munição, estado do carro e loja no HUD ou no minimapa. Teste os três esquemas de controle e publique a atualização no catálogo da MQZGames.
 
 ## Desenvolvimento
 

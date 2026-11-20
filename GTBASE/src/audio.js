@@ -54,6 +54,7 @@ export function createAudio() {
     },
     step(){tone(79,47,.085,.12,'triangle');},
     shot(){tone(194,44,.15,.59,'square');},
+    punch(hit){tone(hit?109:187,hit?39:73,hit?.125:.084,hit?.45:.13,'triangle');},
     crash(){tone(98,29,.24,.34,'sawtooth');},
     bell(){tone(442,521,.20,.25);tone(660,840,.29,.20,'sine',.11);},
     siren(){tone(440,660,.35,.15);tone(660,400,.36,.15,'sine',.33);}

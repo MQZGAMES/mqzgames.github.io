@@ -16,7 +16,7 @@
     <div id="hud" hidden>
       <div class="objective">
         <p id="chapter">VILA BRASA</p>
-        <h1 id="objective">Pegue o cupê</h1>
+        <h1 id="objective">Exploração livre</h1>
         <p id="detail"></p>
       </div>
       <div class="utilities">
@@ -26,6 +26,8 @@
       </div>
       <div id="prompt" hidden></div>
       <div id="crosshair" hidden aria-hidden="true"></div>
+      <div id="hitmark" hidden aria-hidden="true">×</div>
+      <div id="impact" hidden aria-hidden="true"></div>
       <div id="info"><span id="mode"></span><strong id="reading"></strong></div>
       <div id="touch" hidden>
         <div id="look" aria-label="Arraste para girar a câmera"></div>
@@ -33,17 +35,28 @@
         <div id="actions">
           <button id="interact" type="button">Entrar</button>
           <button id="sprint" type="button">Correr</button>
+          <button id="punch" type="button">Soco</button>
           <button id="aim" type="button">Mirar</button>
           <button id="fire" type="button">Atirar</button>
         </div>
       </div>
     </div>
+    <dialog id="shop" aria-labelledby="shop-title">
+      <div class="district">VILA BRASA</div>
+      <h2 id="shop-title">Loja de armas</h2>
+      <p id="shop-detail"></p>
+      <p id="shop-balance"></p>
+      <div class="shop-actions">
+        <button id="buy" type="button">Comprar pistola</button>
+        <button id="close-shop" type="button">Voltar à rua</button>
+      </div>
+    </dialog>
     <section id="menu" aria-label="Menu do jogo">
       <div class="panel">
         <a class="back" href="../">← MQZGames</a>
         <div class="district">VILA BRASA</div>
         <h1 id="title">GT<span>BASE</span></h1>
-        <p id="intro">Fim de tarde. Um cupê dando sopa. O bairro inteiro pela frente.</p>
+        <p id="intro">Explore Vila Brasa a pé ou de carro. A loja de armas fica perto do ponto de partida.</p>
         <button id="play" type="button" disabled>Carregando…</button>
         <div class="settings">
           <label>Gráficos <select id="quality"><option value="auto">Auto</option><option value="low">Leve</option><option value="high">Alto</option></select></label>
@@ -53,8 +66,8 @@
         <details id="help">
           <summary>Como jogar</summary>
           <p><b>Toque</b> · Analógico esquerdo para mover. Arraste à direita para girar a câmera. No carro, empurre o analógico para cima para acelerar e para baixo para frear ou dar ré.</p>
-          <p><b>PC</b> · WASD ou setas, Shift para correr, E para entrar/sair, mouse para câmera, botão direito ou Q para mirar, botão esquerdo ou F para atirar. No carro, Espaço é o freio de mão. Esc pausa.</p>
-          <p><b>Xbox</b> · Analógico esquerdo para mover ou dirigir, direito para câmera, A para correr, Y para entrar/sair, RT para acelerar ou atirar, LT para frear ou mirar, X para freio de mão e Menu para pausar.</p>
+          <p><b>PC</b> · WASD ou setas, Shift para correr, E para interagir, R para socar. Mouse para câmera, botão direito ou Q para mirar, botão esquerdo ou F para atirar. Espaço é o freio de mão. Esc pausa.</p>
+          <p><b>Xbox</b> · Analógico esquerdo para mover ou dirigir, direito para câmera, A para correr, B para socar, Y para interagir, RT para acelerar ou atirar, LT para frear ou mirar, X para freio de mão e Menu para pausar. Na loja, A confirma e B fecha.</p>
         </details>
       </div>
     </section>

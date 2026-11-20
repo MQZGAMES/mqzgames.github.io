@@ -27,7 +27,7 @@ export function controls(onToggle, isPlaying) {
   };
   setMode(mode);
   const bound = new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
-    'ShiftLeft','ShiftRight','Space','KeyE','KeyF','KeyQ','Escape']);
+    'ShiftLeft','ShiftRight','Space','KeyE','KeyF','KeyQ','KeyR','Escape']);
   window.addEventListener('keydown', event => {
     if (!bound.has(event.code) || (event.target instanceof HTMLSelectElement && !isPlaying())) return;
     if (isPlaying() || event.code==='Escape') event.preventDefault();
@@ -41,6 +41,7 @@ export function controls(onToggle, isPlaying) {
     if (!event.repeat) {
       if (event.code==='KeyE') once.add('interact');
       if (event.code==='KeyF') once.add('fire');
+      if (event.code==='KeyR') once.add('punch');
     }
   });
   window.addEventListener('keyup', event=>keys.delete(event.code));
@@ -123,7 +124,7 @@ export function controls(onToggle, isPlaying) {
   look.addEventListener('lostpointercapture',event=>{
     if(event.pointerId===lookPointer) lookPointer=-1;
   });
-  for (const action of ['interact','fire','aim','sprint']) {
+  for (const action of ['interact','fire','aim','sprint','punch']) {
     const button=element(action);
     button.addEventListener('pointerdown',event=>{
       event.preventDefault();
@@ -150,7 +151,7 @@ export function controls(onToggle, isPlaying) {
       const pad=Array.from(navigator.getGamepads?.() ?? []).find(item=>item?.connected && item.mapping==='standard');
       const buttons=pad?.buttons.map(button=>button.pressed || button.value>.45) ?? [];
       const pressed = index => buttons[index] && !previousPad[index];
-      const axes=pad?.axes.map(axis) ?? [0,0,0,0];
+      const axes=Array.from({length:4},(_,i)=>axis(pad?.axes[i]));
       const active=buttons.some(Boolean)||axes.some(value=>Math.abs(value)>.1);
       if (active) setMode('pad');
       if (pressed(9) || (!isPlaying() && pressed(0))) onToggle();
@@ -167,6 +168,8 @@ export function controls(onToggle, isPlaying) {
         brake:keys.has('Space') || held.has('sprint') || Boolean(buttons[2]),
         interact:once.has('interact') || pressed(3),
         fire:once.has('fire') || pressed(7),
+        punch:once.has('punch') || pressed(1),
+        confirm:pressed(0),
         mode
       };
       previousPad=buttons;

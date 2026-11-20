@@ -2,7 +2,7 @@ export const halfWorld = 65;
 export const roads = [-57, -19, 19, 57];
 export const blocks = [-38, 0, 38];
 export const spawn = { x: 14, z: -7 };
-export const delivery = { x: 19, z: -37 };
+export const weaponShop = { x: 12.05, z: -5.45 };
 export const range = { x: 6, z: 38 };
 export const targetSpots = [{x:-7,z:31}, {x:-9,z:38}, {x:-7,z:45}];
 export const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -33,12 +33,4 @@ export function turn(current, target, amount) {
 export function axis(value = 0) {
   const deadzone = .16;
   return Math.sign(value) * Math.max(0, (Math.abs(value) - deadzone) / (1 - deadzone));
-}
-
-export function nextMission(stage, event) {
-  if (stage === 0 && event === 'take') return 1;
-  if (stage === 1 && event === 'deliver') return 2;
-  if (stage === 2 && event === 'range') return 3;
-  if (stage === 3 && event === 'targets') return 4;
-  return stage;
 }
