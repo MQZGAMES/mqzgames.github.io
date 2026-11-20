@@ -27,7 +27,7 @@ export function controls(onToggle, isPlaying) {
   };
   setMode(mode);
   const bound = new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
-    'ShiftLeft','ShiftRight','Space','KeyE','KeyF','KeyQ','KeyR','Escape']);
+    'ShiftLeft','ShiftRight','Space','KeyE','KeyF','KeyQ','KeyR','KeyG','KeyV','Escape']);
   window.addEventListener('keydown', event => {
     if (!bound.has(event.code) || (event.target instanceof HTMLSelectElement && !isPlaying())) return;
     if (isPlaying() || event.code==='Escape') event.preventDefault();
@@ -42,6 +42,9 @@ export function controls(onToggle, isPlaying) {
       if (event.code==='KeyE') once.add('interact');
       if (event.code==='KeyF') once.add('fire');
       if (event.code==='KeyR') once.add('punch');
+      if (event.code==='KeyG') once.add('recruit');
+      if (event.code==='KeyV') once.add('weapon');
+      if (event.code==='Space') once.add('jump');
     }
   });
   window.addEventListener('keyup', event=>keys.delete(event.code));
@@ -57,21 +60,34 @@ export function controls(onToggle, isPlaying) {
   }
   window.addEventListener('blur',clear);
   view.addEventListener('contextmenu',event=>event.preventDefault());
-  view.addEventListener('pointerdown', event => {
-    if (!isPlaying()) return;
-    if (event.pointerType==='touch') {
-      setMode('touch');
-      return;
+  view.addEventListener('wheel',event=>{
+    if(!isPlaying() || !event.deltaY) return;
+    event.preventDefault();
+    if(!held.has('wheel')) {
+      once.add('weapon');
+      held.add('wheel');
     }
+    clearTimeout(wheelTimer);
+    wheelTimer=window.setTimeout(()=>held.delete('wheel'),125);
+  },{passive:false});
+  let wheelTimer=0;
+  view.addEventListener('pointerdown', event => {
+    if (isPlaying() && event.pointerType==='touch') setMode('touch');
+  });
+  // MouseEvent reports each button of a chord. PointerEvent only reports its endpoints.
+  window.addEventListener('mousedown', event => {
+    if (!isPlaying() || (document.pointerLockElement!==view &&
+       (!(event.target instanceof Node) || !view.contains(event.target)))) return;
     if (event.button===0 && document.pointerLockElement!==view && view.requestPointerLock) {
       const pending = view.requestPointerLock();
       if (pending) pending.catch(()=>{});
     }
     setMode('keyboard');
-    if (event.button===0) once.add('fire');
+    if (event.button===0) {once.add('fire');held.add('mouseFire');}
     if (event.button===2) mouse.aim=true;
   });
-  window.addEventListener('pointerup',event=>{
+  window.addEventListener('mouseup',event=>{
+    if (event.button===0) held.delete('mouseFire');
     if (event.button===2) mouse.aim=false;
   });
   window.addEventListener('pointermove',event=>{
@@ -124,7 +140,7 @@ export function controls(onToggle, isPlaying) {
   look.addEventListener('lostpointercapture',event=>{
     if(event.pointerId===lookPointer) lookPointer=-1;
   });
-  for (const action of ['interact','fire','aim','sprint','punch']) {
+  for (const action of ['interact','fire','aim','sprint','punch','jump','weapon','recruit']) {
     const button=element(action);
     button.addEventListener('pointerdown',event=>{
       event.preventDefault();
@@ -134,10 +150,13 @@ export function controls(onToggle, isPlaying) {
         if (held.has('aim')) held.delete('aim');
         else held.add('aim');
         button.setAttribute('aria-pressed',String(held.has('aim')));
-      } else if(action==='sprint') held.add(action);
+      } else if(action==='sprint' || action==='fire') {
+        held.add(action);
+        if(action==='fire') once.add(action);
+      }
       else once.add(action);
     });
-    if (action==='sprint') button.addEventListener('lostpointercapture',()=>held.delete(action));
+    if (action==='sprint' || action==='fire') button.addEventListener('lostpointercapture',()=>held.delete(action));
   }
   let lastDriving=false;
   return {
@@ -167,8 +186,11 @@ export function controls(onToggle, isPlaying) {
         run:held.has('sprint') || keys.has('ShiftLeft') || keys.has('ShiftRight') || Boolean(buttons[0]),
         brake:keys.has('Space') || held.has('sprint') || Boolean(buttons[2]),
         interact:once.has('interact') || pressed(3),
-        fire:once.has('fire') || pressed(7),
+        fire:once.has('fire') || held.has('fire') || held.has('mouseFire') || (!driving && Boolean(buttons[7])),
         punch:once.has('punch') || pressed(1),
+        recruit:once.has('recruit') || pressed(12),
+        weapon:once.has('weapon') || pressed(15),
+        jump:once.has('jump') || pressed(2),
         confirm:pressed(0),
         mode
       };

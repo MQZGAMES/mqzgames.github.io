@@ -55,11 +55,12 @@ function contact(group, x, z) {
   shadow.position.y = .025;
   shadow.scale.set(x,z,1);
   group.add(shadow);
+  return shadow;
 }
 
 export function person(scene, shirt, trousers, skin, hero = false) {
   const root = new T.Group();
-  contact(root,.41,.38);
+  const shadow=contact(root,.41,.38);
   const body = new T.Group();
   root.add(body);
   const add = (shape, color, x, y, z, w, h, d) => piece(body,shape,color,x,y,z,w,h,d);
@@ -90,32 +91,52 @@ export function person(scene, shirt, trousers, skin, hero = false) {
     legs.push(leg);
   }
   const pistol = new T.Group();
-  pistol.position.set(0,-.44,.065);
-  piece(pistol,'box',0x283639,0,0,.075,.085,.08,.29,true);
-  piece(pistol,'box',0x283639,0,-.055,0,.072,.127,.067);
-  arms[1].add(pistol);
+  pistol.position.set(0,-.43,.012);
+  piece(pistol,'box',0x283639,0,.012,-.002,.066,.078,.12,true);
+  piece(pistol,'box',0x283639,0,-.105,.054,.074,.25,.079,true);
+  piece(pistol,'box',0x9c9c8b,0,-.189,.095,.031,.028,.018);
+  const muzzle=new T.Object3D();
+  muzzle.position.set(0,-.235,.053);
+  pistol.add(muzzle);
+  arms[0].add(pistol);
   for (const part of [body,...arms,...legs,pistol]) combineParts(part,meshes(part));
   pistol.visible = false;
   scene.add(root);
-  return {root, body, arms, legs, pistol, stride:0};
+  return {root, body, arms, legs, pistol, muzzle, shadow, stride:0};
 }
 
-export function animatePerson(person, dt, speed, aim, gun, punch=0) {
+export function animatePerson(person, dt, speed, aim, gun, punch=0, elevation=0, surrender=false) {
   person.stride += dt * (4.6 + speed * 1.65);
   const swing = Math.sin(person.stride) * Math.min(.78,speed * .15);
   person.body.position.y = Math.abs(swing) * .072;
   person.legs[0].rotation.x = swing;
   person.legs[1].rotation.x = -swing;
-  person.arms[0].rotation.x = aim ? -.87 : -swing * .76;
-  person.arms[1].rotation.x = aim ? -1.47 : swing * .76;
+  person.arms[0].rotation.x = aim ? -Math.PI/2+elevation : -swing * .76;
+  person.arms[1].rotation.x = aim ? -1.16 : swing * .76;
+  person.arms[0].rotation.z=surrender?-.25:0;
+  person.arms[1].rotation.z=surrender?.25:0;
+  if(surrender) person.arms[0].rotation.x=person.arms[1].rotation.x=-2.55;
   if(punch>0) {
     const extension=Math.sin(punch*Math.PI);
-    person.arms[0].rotation.x=-.64;
-    person.arms[1].rotation.x=-.50-extension*1.11;
+    person.arms[1].rotation.x=-.64;
+    person.arms[0].rotation.x=-.50-extension*1.11;
     person.body.rotation.y=-extension*.37;
   } else person.body.rotation.y=0;
-  person.pistol.rotation.x = aim ? 1.47 : 0;
   person.pistol.visible = gun;
+}
+
+export function ridePerson(person,vehicle) {
+  const {x,z,angle}=vehicle;
+  person.root.position.set(x,.44,z);
+  person.root.rotation.set(0,angle,vehicle.body.rotation.z*.72);
+  person.shadow.visible=false;
+  person.pistol.visible=false;
+  person.body.position.y=0;
+  person.body.rotation.y=0;
+  for(let i=0;i<2;i++) {
+    person.legs[i].rotation.set(-.47,0,i===0?-.28:.28);
+    person.arms[i].rotation.set(-1.12,0,0);
+  }
 }
 
 export function coupe(scene, color, police = false) {
@@ -139,6 +160,13 @@ export function coupe(scene, color, police = false) {
   const cabin = new T.Mesh(windows,new T.MeshStandardMaterial({color:0x365964,roughness:.24,metalness:.42,flatShading:true,side:T.DoubleSide}));
   cabin.castShadow = true;
   body.add(cabin);
+  const door=new T.Group();
+  door.position.set(-.974,0,.67);
+  piece(door,'box',color,0,.75,-.57,.036,.38,1.18,true);
+  piece(door,'box',0x6f8180,0,1.082,-.56,.035,.27,1.12,true);
+  piece(door,'box',0xccc1a7,-.024,.881,-.89,.04,.04,.15,true);
+  combineParts(door,meshes(door),paintMat);
+  body.add(door);
   add('box',color,0,1.495,-.31,1.43,.075,.96,true);
   add('box',0x333539,0,.69,2.126,.86,.13,.05);
   add('box',0xc8bfac,0,.54,2.13,1.92,.12,.045,true);
@@ -182,13 +210,50 @@ export function coupe(scene, color, police = false) {
   root.add(smoke);
   scene.add(root);
   return {root,body,wheels,lamps,hood,smoke,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
-    steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,smokeTime:0};
+    steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,smokeTime:0,kind:'car',rider:null,door,doorTime:0};
+}
+
+export function motorcycle(scene,color) {
+  const bike=coupe(scene,color);
+  const {body,hood,wheels,smoke}=bike;
+  body.clear();
+  wheels.length=0;
+  bike.kind='bike';
+  bike.root.children[0].scale.set(.42,1.07,1);
+  const add=(shape,shade,x,y,z,w,h,d)=>piece(body,shape,shade,x,y,z,w,h,d);
+  add('box',0x3b3d3c,0,.48,-.04,.32,.38,.70);
+  add('sphere',color,0,.89,.34,.24,.23,.46);
+  add('box',0x24292a,0,.85,-.36,.36,.13,.59);
+  add('box',color,0,.65,-.70,.32,.17,.58);
+  add('box',0xd4b58a,0,.80,.88,.25,.21,.11);
+  add('box',0x9f352c,0,.70,-.99,.20,.11,.11);
+  add('box',0x3c4242,0,1.06,.53,.68,.065,.067);
+  add('box',0xb0aaa0,.232,.36,-.54,.12,.12,.72);
+  hood.visible=false;
+  body.add(hood);
+  smoke.position.set(0,.55,.32);
+  for(const z of [-.73,.78]) {
+    const wheel=new T.Group();
+    wheel.position.set(0,.32,z);
+    piece(wheel,'cylinder',0x252629,0,0,0,.33,.12,.33).rotation.z=Math.PI/2;
+    piece(wheel,'cylinder',0x858485,0,0,0,.205,.14,.205).rotation.z=Math.PI/2;
+    combineParts(wheel,meshes(wheel));
+    wheels.push(wheel);
+    body.add(wheel);
+    add('box',0x5b6160,0,.55,z,.09,.49,.085).rotation.x=z>0?-.21:.46;
+  }
+  combineParts(body,meshes(body).filter(mesh=>mesh!==hood));
+  return bike;
 }
 
 export function poseCar(car, dt, steer = 0) {
   car.root.position.set(car.x,0,car.z);
   car.root.rotation.y = car.angle;
-  car.body.rotation.z += (steer * Math.min(.09,Math.abs(car.speed)*.004) - car.body.rotation.z) * Math.min(1,dt*8);
+  const bike=car.kind==='bike';
+  const lean=bike?(car.integrity<=0?1.25:-steer*Math.min(.53,Math.abs(car.speed)*.039)):steer*Math.min(.09,Math.abs(car.speed)*.004);
+  car.body.rotation.z+=(lean-car.body.rotation.z)*Math.min(1,dt*(bike?6:8));
+  car.doorTime=Math.max(0,car.doorTime-dt);
+  car.door.rotation.y=Math.sin(Math.min(1,car.doorTime/.65)*Math.PI)*1.06;
   for (const wheel of car.wheels) {
     wheel.rotateX(car.speed * dt / .41);
   }

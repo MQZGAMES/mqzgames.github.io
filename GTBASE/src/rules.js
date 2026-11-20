@@ -3,8 +3,9 @@ export const roads = [-57, -19, 19, 57];
 export const blocks = [-38, 0, 38];
 export const spawn = { x: 14, z: -7 };
 export const weaponShop = { x: 12.05, z: -5.45 };
-export const range = { x: 6, z: 38 };
-export const targetSpots = [{x:-7,z:31}, {x:-9,z:38}, {x:-7,z:45}];
+export const station = {x:2,z:38};
+export const residence = {x:38,z:-38};
+export const bed = {x:42.3,z:-41.25};
 export const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 

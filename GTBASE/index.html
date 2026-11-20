@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#102827">
   <meta name="description" content="GTBASE. Explore Vila Brasa em um jogo 3D de ação em mundo aberto da MQZGames.">
   <title>GTBASE · Vila Brasa</title>
-  <link rel="stylesheet" href="style.css">
-  <script type="module" src="game.js"></script>
+  <link rel="stylesheet" href="style.css?v=streets1">
+  <script type="module" src="game.js?v=streets1"></script>
 </head>
 <body>
   <main id="game" aria-label="GTBASE, Vila Brasa">
@@ -21,14 +21,14 @@
       </div>
       <div class="utilities">
         <button id="pause" type="button" aria-label="Pausar">Ⅱ</button>
-        <canvas id="map" width="256" height="256" aria-label="Mapa do bairro"></canvas>
+        <canvas id="map" width="256" height="256" aria-label="Mapa do bairro. Amarelo: loja. Bege: casa. Azul: delegacia. Vermelho: viaturas e policiais em ação. Verde: aliados."></canvas>
         <span id="heat" hidden></span>
       </div>
       <div id="prompt" hidden></div>
       <div id="crosshair" hidden aria-hidden="true"></div>
       <div id="hitmark" hidden aria-hidden="true">×</div>
       <div id="impact" hidden aria-hidden="true"></div>
-      <div id="info"><span id="mode"></span><strong id="reading"></strong></div>
+      <div id="info"><span id="mode"></span><strong id="reading"></strong><progress id="health" max="100" value="100" aria-label="Vida"></progress></div>
       <div id="touch" hidden>
         <div id="look" aria-label="Arraste para girar a câmera"></div>
         <div id="stick" role="group" aria-label="Controle de movimento"><div id="nub"></div></div>
@@ -38,6 +38,9 @@
           <button id="punch" type="button">Soco</button>
           <button id="aim" type="button">Mirar</button>
           <button id="fire" type="button">Atirar</button>
+          <button id="weapon" type="button">Arma</button>
+          <button id="jump" type="button">Pular</button>
+          <button id="recruit" type="button">Recrutar</button>
         </div>
       </div>
     </div>
@@ -56,7 +59,7 @@
         <a class="back" href="../">← MQZGames</a>
         <div class="district">VILA BRASA</div>
         <h1 id="title">GT<span>BASE</span></h1>
-        <p id="intro">Explore Vila Brasa a pé ou de carro. A loja de armas fica perto do ponto de partida.</p>
+        <p id="intro">Explore Vila Brasa a pé, de carro ou de moto. Sua casa, a loja e a delegacia aparecem no mapa.</p>
         <button id="play" type="button" disabled>Carregando…</button>
         <div class="settings">
           <label>Gráficos <select id="quality"><option value="auto">Auto</option><option value="low">Leve</option><option value="high">Alto</option></select></label>
@@ -65,9 +68,10 @@
         </div>
         <details id="help">
           <summary>Como jogar</summary>
-          <p><b>Toque</b> · Analógico esquerdo para mover. Arraste à direita para girar a câmera. No carro, empurre o analógico para cima para acelerar e para baixo para frear ou dar ré.</p>
-          <p><b>PC</b> · WASD ou setas, Shift para correr, E para interagir, R para socar. Mouse para câmera, botão direito ou Q para mirar, botão esquerdo ou F para atirar. Espaço é o freio de mão. Esc pausa.</p>
-          <p><b>Xbox</b> · Analógico esquerdo para mover ou dirigir, direito para câmera, A para correr, B para socar, Y para interagir, RT para acelerar ou atirar, LT para frear ou mirar, X para freio de mão e Menu para pausar. Na loja, A confirma e B fecha.</p>
+          <p><b>Toque</b> · Analógico esquerdo para mover ou dirigir. Arraste à direita para olhar. Toque em Mirar para travar a mira e use Atirar com a outra mão. Arma alterna entre pistola e punhos.</p>
+          <p><b>PC</b> · WASD para andar, Shift para correr, E para interagir, R para socar. Mouse direito mira e esquerdo atira. Roda do mouse ou V troca de arma, G recruta e Espaço pula ou aciona o freio de mão.</p>
+          <p><b>Xbox</b> · Analógicos para movimento e câmera. Y interage, B soca, X pula ou aciona o freio de mão, LT mira ou freia e RT atira ou acelera. Direcional para cima recruta, para direita troca de arma. Menu pausa.</p>
+          <p><b>Vila Brasa</b> · Aponte a pistola de frente para um pedestre por cinco segundos para rendê-lo. Para salvar, entre em casa e use o comando de interação ao lado da cama.</p>
         </details>
       </div>
     </section>

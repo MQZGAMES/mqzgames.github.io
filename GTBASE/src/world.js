@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { blocks, roads, range, targetSpots } from './rules.js';
+import { blocks, roads, station, residence, bed } from './rules.js';
 import { piece } from './models.js';
 
 let seed = 473021;
@@ -83,7 +83,7 @@ export function createWorld(scene) {
     }
     solid.push({x,z,w:.45,d:.45,h:.9*height});
   }
-  function facadeText(label,x,y,z,rotation,color=0x1b3a37) {
+  function facadeText(label,x,y,z,rotation,color=0x1b3a37,width=4.2,height=.65) {
     const canvas = document.createElement('canvas');
     canvas.width=512; canvas.height=115;
     const ctx=canvas.getContext('2d');
@@ -99,7 +99,7 @@ export function createWorld(scene) {
     ctx.fillText(label,256,57,470);
     const map = new T.CanvasTexture(canvas);
     map.colorSpace = T.SRGBColorSpace;
-    const mesh = new T.Mesh(new T.PlaneGeometry(5.1,1.15),new T.MeshBasicMaterial({map}));
+    const mesh = new T.Mesh(new T.PlaneGeometry(width,height),new T.MeshBasicMaterial({map}));
     mesh.position.set(x,y,z);
     mesh.rotation.y=rotation;
     scene.add(mesh);
@@ -121,12 +121,16 @@ export function createWorld(scene) {
       box(rightX,h/2+.15,rightZ,.27,h,.095,trim,false,angle);
       box(px,.36,pz,width,.32,.11,0x817068,false,angle);
       for(let floor=2.94; floor<h-.40; floor+=2.72) {
+        if(floor<3 && ((armory && angle===Math.PI/2) || (shop && angle===0))) continue;
         box(px,floor,pz,width,.16,.12,trim,false,angle);
       }
       for (let row=0; row<Math.floor((h-.6)/2.72); row++) {
         const y = 1.76+row*2.7;
         for (let column=0; column<windows; column++) {
-          const [wx,wz]=offset((column-(windows-1)/2)*2.28);
+          const at=(column-(windows-1)/2)*2.28;
+          const entry=armory && angle===Math.PI/2 || front && angle===0;
+          if(row===0 && (entry&&Math.abs(at)<1.55 || shop&&angle===-Math.PI/2&&Math.abs(at+width*.25)<1.55)) continue;
+          const [wx,wz]=offset(at);
           box(wx,y,wz,1.48,1.27,.11,trim,false,angle);
           box(wx,y,wz,1.25,1.04,.15,shop&&row===0?0x557070:glass,false,angle);
           box(wx,y,wz,.06,1.04,.18,trim,false,angle);
@@ -140,13 +144,13 @@ export function createWorld(scene) {
         box(px+.14,1.52,pz,1.28,1.51,.11,0x477168,false,angle);
         box(px+.19,1.22,pz+.48,.075,.20,.08,0xf0ed93);
         box(px+.64,2.79,pz,4.9,.22,.78,0x435947,true,angle);
-        facadeText('LOJA DE ARMAS',px+.38,3.58,pz,angle,0x315541);
+        facadeText('LOJA DE ARMAS',px+.13,3.10,pz,angle,0x315541,4.2,.47);
       } else if (front && angle===0) {
         box(px,1.13,pz,.94,1.94,.24,iron,false,angle);
         if (shop) {
-          box(px,2.64,pz+.68,w+.16,.19,1.45,0x6d392c,true);
-          for(let k=0;k<w+.1;k+=.49) box(px-w/2+k,2.54,pz+1.39,.24,.20,.07,0xeac586,false);
-          if (label) facadeText(label,px,3.37,pz+.10,angle);
+          box(px,2.64,pz+.51,w-.48,.17,1.10,0x6d392c,true);
+          for(let k=.4;k<w-.32;k+=.49) box(px-w/2+k,2.53,pz+1.06,.24,.17,.07,0xeac586,false);
+          if (label) facadeText(label,px,3.08,pz+.09,angle,0x1b3a37,4.2,.49);
         }
       } else if (shop && angle===-Math.PI/2) {
         const [dx,dz]=offset(-width*.25);
@@ -154,6 +158,64 @@ export function createWorld(scene) {
         for(let row=.36;row<2.29;row+=.14) box(dx,row,dz,1.21,.027,.24,0x8a9186,false,angle);
       }
     }
+  }
+
+  const houseRoof=new T.Group();
+  scene.add(houseRoof);
+  function home() {
+    const {x,z}=residence, plaster=0xc4ad88, wallHeight=2.65;
+    box(x,.17,z,12.1,.09,10.1,0x9d7862);
+    box(x-2.8,.218,z,5.3,.017,9.45,0xb29e79);
+    box(x+2.9,.218,z+2.2,5.45,.017,4.75,0xc0a582);
+    const wall=(dx,dz,w,d)=>blockBox(x+dx,.2+wallHeight/2,z+dz,w,wallHeight,d,plaster);
+    wall(-6,0,.21,10); wall(6,0,.21,10); wall(0,-5,12,.21);
+    wall(-3.38,5,5.24,.21); wall(3.65,5,4.7,.21);
+    wall(.45,-3.92,.15,2.1); wall(.45,-.69,.15,1.9);
+    wall(3.5,.05,4.8,.15); wall(-4.3,-.6,3.45,.15);
+    wall(-2.63,-3.92,.15,2.05);
+    box(x+.28,2.55,z+5,2.16,.48,.25,plaster);
+    box(x+.28,.11,z+5.9,2.55,.19,1.55,0x9b8b75);
+    const furniture=(dx,dz,w,h,d,color)=>blockBox(x+dx,.224+h/2,z+dz,w,h,d,color);
+    furniture(4.0,-3.63,1.46,.40,2.0,0x695044);
+    box(x+4,.72,z-3.57,1.39,.19,1.95,0x58786f);
+    box(x+4,.84,z-4.23,1.10,.13,.41,0xe3d6b9);
+    furniture(5.3,-1.20,.96,1.84,1.12,0x75563d);
+    furniture(-4.84,-3.75,1.4,.81,.62,0xd8cabb);
+    furniture(-4.47,-2.72,.43,.43,.64,0xdad7cf);
+    furniture(-5.27,-1.7,.66,.79,.50,0xdad7cf);
+    furniture(-5.18,1.3,.78,.88,2.45,0x766d58);
+    furniture(-4.95,3.77,1.04,1.76,.75,0xccc7ab);
+    box(x-5.18,1.12,z+1.29,.8,.12,2.45,0xddddc2);
+    box(x-5.2,1.19,z+1.44,.52,.025,.60,0x7b9090);
+    furniture(4.76,2.82,.91,.53,2.55,0x58776c);
+    box(x+5.16,.88,z+2.82,.20,.67,2.56,0x43655b);
+    furniture(2.78,2.80,1.15,.40,.68,0x875d3f);
+    furniture(-.36,2.98,1.23,.75,1.14,0x8a643e);
+    box(x+2.76,.245,z+2.77,2.12,.02,2.0,0xa98568);
+    for(let side of [-1,1]) {
+      const panel=piece(houseRoof,'box',0xa25f43,x+side*3.08,3.5,z,6.54,.16,10.72);
+      panel.rotation.z=-side*.21; panel.castShadow=false;
+    }
+    facadeText('CASA',x+2.7,2.12,z+5.14,0,0x4a4832,1.55,.45);
+    tree(x-9.5,z-5,true);
+    box(x+8.8,.19,z-4,4.2,.08,7.6,0x738457);
+  }
+
+  function policeStation() {
+    const y=station.z;
+    box(2,.169,y,19,.045,22,0x696b65);
+    blockBox(-7.2,2.19,y,6.7,4.1,20,0x8d9b9b);
+    box(-2.5,3.33,y,7.1,.25,19.5,0x526c77,true);
+    blockBox(-1.5,1.42,y-9.72,5.4,2.54,.35,0x7d9090);
+    blockBox(-1.5,1.42,y+9.72,5.4,2.54,.35,0x7d9090);
+    for(const dz of [-9.5,9.5]) blockBox(1.04,1.65,y+dz,.28,3,.31,0x849592);
+    box(1.10,2.88,y,.25,.42,19.54,0x5b7882);
+    facadeText('POLÍCIA · VILA BRASA',1.26,2.87,y,Math.PI/2,0x294454,7.2,.63);
+    for(const dz of [-8.2,-3.95,.3,4.55,8.80]) box(8.15,.208,y+dz,5.3,.016,.10,0xddd3ae);
+    for(const dz of [-6.1,-1.85,2.4]) box(5.5,.208,y+dz,.10,.016,3.25,0xddd3ae);
+    box(-3.75,1.67,y-6.8,.16,1.18,2.05,0x37565d);
+    box(-3.75,1.67,y+6.8,.16,1.18,2.05,0x37565d);
+    box(-3.52,.21,y+3.1,.64,.08,2.45,0x625c51);
   }
 
   box(0,-.30,0,720,.10,720,0x878072);
@@ -188,14 +250,9 @@ export function createWorld(scene) {
           box(x+k,.164,z+offset,.023,.008,2.32,0xc5b396);
         }
       }
-      const special = x===0 && z===38;
-      if (special) {
-        box(x,.168,z,21,.042,20,0x74756b);
-        blockBox(x-11,1.31,z,.58,2.36,20,0x996951);
-        for(const offset of [-8,-4,0,4,8]) box(x-10.67,1.34,z+offset,.08,2.18,2.02,0xc19970);
-        for(const offset of [-6,0,6]) box(x+2,.195,z+offset,.11,.016,2.55,0xe1cfab);
-        facadeText('ESTANDE BRASA',x-10.64,2.93,z,Math.PI/2);
-      } else if (x===0&&z===-38) {
+      if(x===station.x-2 && z===station.z) policeStation();
+      else if(x===residence.x && z===residence.z) home();
+      else if (x===0&&z===-38) {
         for(const dx of [-6,6]){
           box(x+dx,.185,z,8.2,.08,19,0x71825a);
           for(const dz of [-7,0,7]) tree(x+dx,z+dz,true);
@@ -215,16 +272,17 @@ export function createWorld(scene) {
             building(x+dx,z+dz,8.5+random(),7.6+random(),h,pick(colors),shop,label,armory);
           }
         }
-        tree(x+11,z-10,random()>.37);
-        tree(x-11,z+10,random()>.42);
+        tree(x+12.55,z-12.05,random()>.37);
+        tree(x-10.5,z+12.15,random()>.42);
       }
       for(const side of [-1,1]){
-        const lx=x+side*12.3, lz=z-side*11.1;
+        const lx=x+side*12.85, lz=z-side*9.85;
         draw('pole',lx,2.39,lz,.083,4.5,.083,iron,true);
         box(lx+side*.35,4.52,lz,.79,.075,.075,iron,true);
         box(lx+side*.73,4.48,lz,.32,.12,.19,0xe3b985,true);
-        box(x+side*9,.42,z-side*12.5,1.5,.12,.48,0x815846,true);
-        box(x+side*9,.64,z-side*12.66,1.5,.28,.09,0x956954,true);
+        box(x+side*9,.56,z-side*12.5,1.52,.075,.46,0x815846,true);
+        box(x+side*9,.78,z-side*12.66,1.52,.23,.075,0x956954,true);
+        for(const leg of [-.54,.54]) box(x+side*9+leg,.35,z-side*12.5,.06,.37,.37,iron,true);
         const bx=x+side*10.1;
         draw('pole',bx,.52,z-side*12.55,.24,.69,.24,0x355049,true);
         draw('pole',bx,.88,z-side*12.55,.267,.10,.267,0x263d37,true);
@@ -253,18 +311,6 @@ export function createWorld(scene) {
     instance.receiveShadow = true;
     scene.add(instance);
   }
-  const targets = targetSpots.map(({x,z})=>{
-    const root = new T.Group();
-    root.position.set(x,.17,z);
-    const plate = piece(root,'cylinder',0xffbb4b,0,1.22,0,.52,.12,.52);
-    plate.rotation.z=Math.PI/2;
-    const bull=piece(root,'cylinder',0x934426,.069,1.22,0,.235,.04,.235);
-    bull.rotation.z=Math.PI/2;
-    piece(root,'box',iron,0,.50,0,.1,.97,.10);
-    piece(root,'box',iron,0,.06,0,.58,.12,.54);
-    scene.add(root);
-    return {x,z,root,plate,hit:false,resetAfter:0};
-  });
   const marker = new T.Group();
   const ring = new T.Mesh(new T.RingGeometry(1.60,1.85,40),new T.MeshBasicMaterial({
     color:0xf0ff86,side:T.DoubleSide,transparent:true,opacity:.85,depthWrite:false
@@ -276,5 +322,5 @@ export function createWorld(scene) {
   beacon.position.y=2.8;
   marker.add(beacon);
   scene.add(marker);
-  return {solid,targets,marker,beacon,sun,sky,range};
+  return {solid,marker,beacon,sun,sky,houseRoof,bed};
 }

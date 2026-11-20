@@ -40,6 +40,9 @@ details p{line-height:1.45;margin:6px 0}
 #prompt{left:50%;bottom:max(50px,calc(env(safe-area-inset-bottom) + 40px));transform:translateX(-50%);font-size:.79rem;font-weight:760;white-space:nowrap}
 #info{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));text-align:right;display:grid;gap:2px}
 #reading{font-variant-numeric:tabular-nums;font-size:.9rem}
+#health{width:102px;height:7px;accent-color:#e16550;justify-self:end}
+#health::-webkit-progress-bar{background:#442e2b;border-radius:4px}
+#health::-webkit-progress-value{background:#ed7862;border-radius:4px}
 #crosshair{position:absolute;left:50%;top:50%;width:16px;height:16px;transform:translate(-50%,-50%);border:1px solid white;border-radius:50%;box-shadow:0 0 4px #141d1c;background:#14262920}
 #crosshair::after{content:"";position:absolute;inset:6px;border-radius:50%;background:#fff}
 #hitmark{position:absolute;left:50%;top:50%;transform:translate(-50%,-52%);font-size:2rem;font-weight:900;line-height:1;color:#fef79d;text-shadow:0 1px 5px #3e2819}
@@ -48,8 +51,8 @@ details p{line-height:1.45;margin:6px 0}
 #look{left:43%;pointer-events:auto}
 #stick{position:absolute;left:max(20px,calc(env(safe-area-inset-left) + 8px));bottom:max(20px,calc(env(safe-area-inset-bottom) + 10px));width:clamp(92px,24vw,122px);aspect-ratio:1;border:1px solid #f2f4d574;border-radius:50%;background:#122c2a91;pointer-events:auto;touch-action:none}
 #nub{position:absolute;inset:29%;border-radius:50%;background:#effb91d8;box-shadow:0 2px 9px #102827a0;pointer-events:none}
-#actions{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(16px,calc(env(safe-area-inset-bottom) + 6px));display:grid;grid-template-columns:repeat(2,minmax(55px,auto));gap:7px;pointer-events:auto}
-#actions button{font-size:.76rem;font-weight:830;min-height:48px;padding:0 9px}
+#actions{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(16px,calc(env(safe-area-inset-bottom) + 6px));display:grid;grid-template-columns:repeat(3,minmax(45px,auto));gap:5px;pointer-events:auto}
+#actions button{font-size:.69rem;font-weight:830;min-height:45px;padding:0 6px}
 #actions button:active,#actions button[aria-pressed=true]{background:var(--lime);color:var(--ink)}
 #actions #fire{background:#70352ce8}
 #actions #fire:active{background:#ffb07d;color:var(--ink)}

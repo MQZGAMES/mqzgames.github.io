@@ -4,7 +4,15 @@ Jogo 3D original de ação em mundo aberto, ambientado no bairro fictício Vila 
 
 ## Prompt da atualização
 
-> Atualize GTBASE para começar em exploração livre. Mantenha o bairro 3D original Vila Brasa, o visual de fim de tarde, os controles multitoque, teclado e mouse, e o mapeamento Xbox. Adicione uma loja de armas com pistola e reposição de munição. Permita atirar pela cidade e dar socos. Pedestres devem reagir, fugir e cair ao receber dano, com a patrulha reagindo a crimes. Faça mais cupês circularem por rotas distintas, com curvas, frenagem para obstáculos, distância entre carros e prioridade nos cruzamentos. Dê ao carro aceleração, inércia, derrapagem no freio de mão e colisões contra cenário e veículos que transfiram impulso, reduzam a integridade e possam inutilizar o motor. Mostre munição, estado do carro e loja no HUD ou no minimapa. Teste os três esquemas de controle e publique a atualização no catálogo da MQZGames.
+> Expanda GTBASE como um sandbox 3D original de Vila Brasa, com exploração livre desde o início e foco em toque, teclado e mouse e controle Xbox. Corrija a combinação de mirar e disparar, permita elevar a mira, alinhe pistola e empunhadura à mão direita e faça o tiro sair do cano. Mostre mira durante o disparo, quantidade de balas e barra de vida. Permita alternar pistola e punhos e dar um pulo curto nos três esquemas.
+>
+> Substitua o estande por uma delegacia com três viaturas, policiais que embarcam e saem conforme o nível de procurado, perseguições a pé ou de carro e reação a crimes de NPCs. Use dano por área atingida e velocidade de impacto. Pedestres rendidos entregam dinheiro após cinco segundos sob a mira pela frente. Pedestres mortos deixam dinheiro se não foram assaltados e policiais deixam arma ou munição. Use uma poça estilizada sem a sombra vertical dos personagens caídos. Permita recrutar até três pedestres armados, com munição ilimitada, que seguem o jogador e reagem às agressões e aos alvos marcados.
+>
+> Inclua um modelo original de moto com inclinação, manobrabilidade, frenagem e quedas, além de animações para tirar motoristas e pilotos de veículos ocupados. Faça o trânsito desviar de veículos parados e pedestres quando houver espaço. Revise proporções e interseções de portas, janelas, letreiros, toldos, postes e árvores. Crie uma casa acessível no mesmo mapa, com sala, cozinha, banheiro, quarto e salvamento na cama. Verifique as mecânicas e a interface em telas de PC e celular, publique no catálogo da MQZGames e confirme o link público.
+
+## Salvamento
+
+Na cama, use o comando de interação. O navegador mantém vida, saldo, pistola, balas e integrantes recrutados em Vila Brasa. A carga começa no quarto. Trânsito, perseguições e posição dos NPCs são recriados ao abrir o jogo.
 
 ## Desenvolvimento
 
