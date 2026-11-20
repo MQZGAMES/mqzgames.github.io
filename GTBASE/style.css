@@ -1,0 +1,69 @@
+:root{color-scheme:dark;--ink:#102827;--paper:#fff5e5;--lime:#effb91;--line:#ecf0cc45;font-family:system-ui,sans-serif;background:#102827;color:var(--paper)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body,#game,#view{margin:0;width:100%;height:100%;overflow:hidden}
+#game{position:relative;background:linear-gradient(160deg,#8a584e,#182e32);min-height:100dvh}
+#view{position:absolute;inset:0;touch-action:none}
+#view canvas{width:100%;height:100%;display:block}
+.vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#101d2852,transparent 27%,transparent 69%,#12222265)}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
+#menu{position:absolute;inset:0;display:flex;align-items:flex-end;padding:max(16px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(22px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));background:linear-gradient(0deg,#102626ed,#10262662 56%,#1026260e);overflow:auto}
+.panel{width:min(100%,460px);max-height:100%}
+.back{color:#fff0d7;text-decoration:none;font-weight:750;font-size:.83rem}
+.district{letter-spacing:.28em;color:var(--lime);font-size:.69rem;font-weight:850;margin:clamp(12px,4vh,36px) 0 0}
+#title{font-family:Impact,"Arial Black",system-ui,sans-serif;font-weight:950;font-style:italic;font-size:clamp(4.15rem,15vw,9rem);line-height:.84;letter-spacing:-.085em;margin:10px 0 15px;text-shadow:0 4px 24px #0a211b73}
+#title span{color:var(--lime)}
+#intro{max-width:26ch;line-height:1.42;margin:0 0 17px;font-size:clamp(.92rem,2vw,1.15rem);color:#f7ead7}
+#play{background:var(--lime);color:var(--ink);border:0;padding:12px 26px;font-size:1.05rem;font-weight:900;min-height:48px;min-width:150px;border-radius:5px}
+#play:disabled{opacity:.7;cursor:default}
+.settings{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:10px;font-size:.78rem}
+.settings button,.settings label{min-height:36px;padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:#122e2bcc}
+.settings label{display:flex;align-items:center;gap:5px}
+select{background:#203b37;border:0;border-radius:3px;padding:3px}
+details{margin-top:10px;font-size:.82rem;color:#f5e6d0}
+summary{cursor:pointer;width:max-content;padding:6px 0;font-weight:750}
+details p{line-height:1.45;margin:6px 0}
+#hud{position:absolute;inset:0;pointer-events:none;user-select:none}
+.objective{position:absolute;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));max-width:min(65vw,430px);background:#112825df;border-left:3px solid var(--lime);border-radius:0 6px 6px 0;padding:8px 11px;z-index:2}
+#chapter,#mode{color:var(--lime);font-size:.63rem;font-weight:860;letter-spacing:.13em;text-transform:uppercase}
+.objective p,.objective h1{margin:0}
+.objective h1{font-size:clamp(.98rem,3.7vw,1.4rem);line-height:1.2;margin:3px 0}
+#detail{font-size:clamp(.72rem,2.8vw,.9rem);color:#f3e5d3}
+.utilities{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));display:flex;flex-direction:column;align-items:flex-end;gap:6px;z-index:3}
+#pause{pointer-events:auto;font-weight:900;font-size:1.08rem;width:44px;height:44px}
+#pause,#actions button{background:#102c28dd;border:1px solid #f2f4d573;border-radius:9px;touch-action:none}
+#map{width:clamp(70px,21vw,128px);height:auto;border:1px solid #f2f4d593;border-radius:50%;box-shadow:0 4px 15px #0c2326a3}
+#heat{background:#411d19e9;border:1px solid #f89760;border-radius:4px;padding:3px 6px;color:#ffd29d;font-size:.67rem;font-weight:840;text-align:right}
+#prompt,#info{position:absolute;border:1px solid var(--line);background:#102825e5;border-radius:5px;padding:7px 10px}
+#prompt{left:50%;bottom:max(50px,calc(env(safe-area-inset-bottom) + 40px));transform:translateX(-50%);font-size:.79rem;font-weight:760;white-space:nowrap}
+#info{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));text-align:right;display:grid;gap:2px}
+#reading{font-variant-numeric:tabular-nums;font-size:.9rem}
+#crosshair{position:absolute;left:50%;top:50%;width:16px;height:16px;transform:translate(-50%,-50%);border:1px solid white;border-radius:50%;box-shadow:0 0 4px #141d1c;background:#14262920}
+#crosshair::after{content:"";position:absolute;inset:6px;border-radius:50%;background:#fff}
+#touch,#look{position:absolute;inset:0;touch-action:none}
+#look{left:43%;pointer-events:auto}
+#stick{position:absolute;left:max(20px,calc(env(safe-area-inset-left) + 8px));bottom:max(20px,calc(env(safe-area-inset-bottom) + 10px));width:clamp(92px,24vw,122px);aspect-ratio:1;border:1px solid #f2f4d574;border-radius:50%;background:#122c2a91;pointer-events:auto;touch-action:none}
+#nub{position:absolute;inset:29%;border-radius:50%;background:#effb91d8;box-shadow:0 2px 9px #102827a0;pointer-events:none}
+#actions{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(16px,calc(env(safe-area-inset-bottom) + 6px));display:grid;grid-template-columns:repeat(2,minmax(55px,auto));gap:7px;pointer-events:auto}
+#actions button{font-size:.76rem;font-weight:830;min-height:48px;padding:0 9px}
+#actions button:active,#actions button[aria-pressed=true]{background:var(--lime);color:var(--ink)}
+#actions #fire{background:#70352ce8}
+#actions #fire:active{background:#ffb07d;color:var(--ink)}
+.touching #info{bottom:max(130px,calc(env(safe-area-inset-bottom) + 120px))}
+.touching #prompt{bottom:max(180px,calc(env(safe-area-inset-bottom) + 170px))}
+@media (min-width:720px) and (min-height:500px){
+  #menu{align-items:center;padding-left:max(6vw,env(safe-area-inset-left));background:linear-gradient(90deg,#102626ed,#10262669 43%,#10262600 76%)}
+}
+@media (orientation:landscape) and (max-height:495px){
+  #menu{align-items:center;padding-left:max(5vw,env(safe-area-inset-left));background:linear-gradient(90deg,#102626ed,#10262648 69%,transparent)}
+  .panel{width:min(60%,425px)}
+  #title{font-size:clamp(3.1rem,11vw,5.7rem);margin:6px 0 9px}
+  .district{margin-top:9px}
+  #intro{margin-bottom:10px}
+  #map{width:64px}
+  #actions button{min-height:42px}
+  .touching #info{bottom:max(114px,calc(env(safe-area-inset-bottom) + 106px))}
+  .touching #prompt{bottom:max(23px,env(safe-area-inset-bottom))}
+}
