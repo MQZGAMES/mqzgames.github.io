@@ -44,7 +44,7 @@ export function sweptVehicleHits(vehicle,start,actor) {
   for(let i=0;i<=steps;i++) {
     const t=i/steps;
     const x=start.x+(vehicle.x-start.x)*t,z=start.z+(vehicle.z-start.z)*t;
-    const probe={x,z,angle:vehicle.angle,kind:vehicle.kind};
+    const probe={x,z,angle:vehicle.angle,kind:vehicle.kind,shape:vehicle.shape};
     if(vehicleContains(probe,actor.x,actor.z,.28)) return true;
   }
   return false;

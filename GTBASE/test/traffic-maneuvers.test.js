@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { motorcycle, poseCar } from '../src/models.js';
+import { motorcycle, poseCar } from '../src/cars.js';
 import { driveTraffic, passingPath, recoverDriver } from '../src/traffic.js';
 import { resetVehicle, stepVehicle } from '../src/vehicle.js';
 

@@ -27,7 +27,8 @@ export function controls(onToggle, isPlaying) {
   };
   setMode(mode);
   const bound = new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
-    'ShiftLeft','ShiftRight','Space','KeyE','KeyF','KeyQ','KeyR','KeyG','KeyV','Escape']);
+    'ShiftLeft','ShiftRight','Space','KeyE','KeyF','KeyQ','KeyR','KeyG','KeyV','KeyB','Digit1','Digit2','Digit3','Digit4','Escape']);
+  let order='';
   window.addEventListener('keydown', event => {
     if (!bound.has(event.code) || (event.target instanceof HTMLSelectElement && !isPlaying())) return;
     if (isPlaying() || event.code==='Escape') event.preventDefault();
@@ -45,6 +46,9 @@ export function controls(onToggle, isPlaying) {
       if (event.code==='KeyG') once.add('recruit');
       if (event.code==='KeyV') once.add('weapon');
       if (event.code==='Space') once.add('jump');
+      if (event.code==='KeyB') once.add('sell');
+      const digits={Digit1:'follow',Digit2:'wait',Digit3:'attack',Digit4:'dealer'};
+      if (digits[event.code]) order=digits[event.code];
     }
   });
   window.addEventListener('keyup', event=>keys.delete(event.code));
@@ -140,7 +144,22 @@ export function controls(onToggle, isPlaying) {
   look.addEventListener('lostpointercapture',event=>{
     if(event.pointerId===lookPointer) lookPointer=-1;
   });
-  for (const action of ['interact','fire','aim','sprint','punch','jump','weapon','recruit']) {
+  const gangMenu=element('gang-menu');
+  for (const button of gangMenu.querySelectorAll('button')) {
+    button.addEventListener('pointerdown',event=>{
+      event.preventDefault();
+      order=/** @type {HTMLElement} */(button).dataset.order??'';
+      gangMenu.hidden=true;
+      element('gang').setAttribute('aria-expanded','false');
+    });
+  }
+  element('gang').addEventListener('pointerdown',event=>{
+    event.preventDefault();
+    setMode('touch');
+    gangMenu.hidden=!gangMenu.hidden;
+    element('gang').setAttribute('aria-expanded',String(!gangMenu.hidden));
+  });
+  for (const action of ['interact','fire','aim','sprint','punch','jump','weapon','recruit','sell']) {
     const button=element(action);
     button.addEventListener('pointerdown',event=>{
       event.preventDefault();
@@ -192,8 +211,14 @@ export function controls(onToggle, isPlaying) {
         weapon:once.has('weapon') || pressed(15),
         jump:once.has('jump') || pressed(2),
         confirm:pressed(0),
+        cancel:pressed(1),
+        navUp:pressed(12),
+        navDown:pressed(13),
+        sell:once.has('sell') || pressed(13),
+        order:order || (pressed(14)?'toggle':'') || (pressed(4)?'attack':'') || (pressed(5)?'dealer':''),
         mode
       };
+      order='';
       previousPad=buttons;
       mouse.x=0; mouse.y=0; once.clear();
       return result;

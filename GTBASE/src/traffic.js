@@ -78,7 +78,7 @@ export function steeringCommand(car, target, desiredSpeed) {
 
 export function safeSpeed(car, vehicles, pedestrians, desired) {
   const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
-  const own=vehicleExtent(car.kind);
+  const own=vehicleExtent(car.shape??car.kind);
   const motorcycle=car.kind==='bike';
   let speed=desired;
   for(const other of vehicles) {
@@ -86,7 +86,7 @@ export function safeSpeed(car, vehicles, pedestrians, desired) {
     const dx=other.x-car.x,dz=other.z-car.z;
     const ahead=dx*sx+dz*sz;
     const across=Math.abs(dx*sz-dz*sx);
-    const extent=vehicleExtent(other.kind,other.angle-car.angle);
+    const extent=vehicleExtent(other.shape??other.kind,other.angle-car.angle);
     if(ahead<.2 || across>own.width+extent.width+.16) continue;
     const available=Math.max(0,ahead-own.length-extent.length-(motorcycle?.39:.64));
     const otherSpeed=Math.max(0,other.vx*sx+other.vz*sz);
@@ -123,18 +123,18 @@ export function bypass(car, vehicles, pedestrians, solids) {
     if(vehicles.some(other=>other!==car && other!==obstruction.other && inLane(other,side)) ||
        pedestrians.some(person=>person!==obstruction.other && person.down<=0 && inLane(person,side))) continue;
     const x=car.x+sx*8+sz*side,z=car.z+sz*8-sx*side;
-    if(vehicleClear(x,z,car.angle,solids,car.kind) && vehicleClear((x+car.x)*.5,(z+car.z)*.5,car.angle,solids,car.kind)) return {x,z};
+    if(vehicleClear(x,z,car.angle,solids,car.shape??car.kind) && vehicleClear((x+car.x)*.5,(z+car.z)*.5,car.angle,solids,car.shape??car.kind)) return {x,z};
   }
   return null;
 }
 
 export function passingPath(car, traffic, crowd, solids) {
   const bike=car.kind==='bike';
-  const own=vehicleExtent(car.kind);
+  const own=vehicleExtent(car.shape??car.kind);
   const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
   const project=(actor)=>({along:(actor.x-car.x)*sx+(actor.z-car.z)*sz,across:(actor.x-car.x)*sz-(actor.z-car.z)*sx});
   const bodies=[
-    ...traffic.filter(other=>other!==car).map(actor=>({actor,...vehicleExtent(actor.kind,actor.angle-car.angle),moving:true})),
+    ...traffic.filter(other=>other!==car).map(actor=>({actor,...vehicleExtent(actor.shape??actor.kind,actor.angle-car.angle),moving:true})),
     ...crowd.filter(person=>person.health>0 && !person.seated && !person.down).map(actor=>({actor,width:.34,length:.34,moving:false}))
   ].map(body=>({...body,...project(body.actor)}));
   const possible=bodies.filter(({actor,along,across,width,length,moving})=>
@@ -169,7 +169,7 @@ export function passingPath(car, traffic, crowd, solids) {
       const tire=bike?.27:.90;
       if(Math.abs(groundHeight(x+sz*tire,z-sx*tire)-road)>=.08 ||
         Math.abs(groundHeight(x-sz*tire,z+sx*tire)-road)>=.08 ||
-        !vehicleFits({x,z,angle:car.angle,kind:car.kind},solids,traffic,car)) {
+        !vehicleFits({x,z,angle:car.angle,kind:car.kind,shape:car.shape},solids,traffic,car)) {
         street=false;
         break;
       }
@@ -183,7 +183,7 @@ export function passingPath(car, traffic, crowd, solids) {
 export function followPass(car, plan, traffic, dt, pedestrians=[]) {
   plan.age+=dt;
   const bike=car.kind==='bike';
-  const own=vehicleExtent(car.kind);
+  const own=vehicleExtent(car.shape??car.kind);
   const {sx,sz,offset}=plan;
   const along=(car.x-plan.x)*sx+(car.z-plan.z)*sz;
   const across=(car.x-plan.x)*sz-(car.z-plan.z)*sx;
@@ -193,7 +193,7 @@ export function followPass(car, plan, traffic, dt, pedestrians=[]) {
   if(plan.phase!=='merge' && along>blocker+plan.clearAfter) {
     const clearToMerge=traffic.every(other=>{
       if(other===car) return true;
-      const extent=vehicleExtent(other.kind,other.angle-Math.atan2(sx,sz));
+      const extent=vehicleExtent(other.shape??other.kind,other.angle-Math.atan2(sx,sz));
       return Math.abs((other.x-plan.x)*sz-(other.z-plan.z)*sx)>own.width+extent.width+.30 ||
         Math.abs((other.x-car.x)*sx+(other.z-car.z)*sz)>own.length+extent.length+1.25;
     });
@@ -204,7 +204,7 @@ export function followPass(car, plan, traffic, dt, pedestrians=[]) {
     if(other===car || other===plan.obstacle) return false;
     const d=(other.x-car.x)*sx+(other.z-car.z)*sz;
     const lane=(other.x-plan.x)*sz-(other.z-plan.z)*sx;
-    const extent=vehicleExtent(other.kind,other.angle-Math.atan2(sx,sz));
+    const extent=vehicleExtent(other.shape??other.kind,other.angle-Math.atan2(sx,sz));
     return d>0 && d<own.length+extent.length+2.7 && Math.abs(lane-side)<own.width+extent.width+.28;
   }) || pedestrians.some(other=>{
     if(other.health<=0 || other.seated || other.down) return false;
@@ -231,7 +231,7 @@ function planReverse(car,goal,vehicles,crowd,solids) {
   const nearby=vehicles.filter(other=>other!==car && distance(car,other)<29);
   let best=null,bestScore=-Infinity;
   for(const steer of [0,-.62,.62,-1,1]) {
-    const pose={x:car.x,z:car.z,angle:car.angle,kind:car.kind};
+    const pose={x:car.x,z:car.z,angle:car.angle,kind:car.kind,shape:car.shape};
     let reversed=0;
     for(let i=0;i<(bike?13:19);i++) {
       pose.angle-=steer*.18*(bike?.75:.56);
@@ -280,7 +280,7 @@ export function recoverDriver(car,state,goal,vehicles,crowd,solids,dt,normal,all
     const active=state.maneuver;
     active.age+=dt;
     const gap=Math.min(.26,Math.max(.035,Math.abs(car.speed)*dt*1.35));
-    const rear={x:car.x-Math.sin(car.angle)*gap,z:car.z-Math.cos(car.angle)*gap,angle:car.angle,kind:car.kind};
+    const rear={x:car.x-Math.sin(car.angle)*gap,z:car.z-Math.cos(car.angle)*gap,angle:car.angle,kind:car.kind,shape:car.shape};
     if(distance(car,active)>=active.distance || active.age>(bike?2.4:2.8) || !maneuverClear(car,rear,vehicles,crowd,solids)) {
       state.maneuver=null;
       state.recoverWait=0;
@@ -301,7 +301,11 @@ export function recoverDriver(car,state,goal,vehicles,crowd,solids,dt,normal,all
   return {steer:state.maneuver.steer,throttle:-.47,brake:false};
 }
 
-export function driveTraffic(cars, active, people, solids, dt, zoneOwners) {
+/**
+ * @param {any[]} cars @param {any} active @param {any[]} people @param {any[]} solids @param {number} dt
+ * @param {Map<string,any>} zoneOwners @param {{state:(id:string,axis:'x'|'z')=>string}} [signals]
+ */
+export function driveTraffic(cars, active, people, solids, dt, zoneOwners, signals) {
   for(const [key,owner] of zoneOwners) {
     if(!owner.driver || owner.integrity<=0 || distance(owner,owner.driver.route[owner.driver.next].junction)>11) zoneOwners.delete(key);
   }
@@ -331,8 +335,22 @@ export function driveTraffic(cars, active, people, solids, dt, zoneOwners) {
     let desired=point.curve&&proximity<12?Math.min(bike?7.1:5.9,cruise):cruise;
     const yielding=owner && owner!==car && proximity<15;
     if(yielding) desired=Math.min(desired,Math.max(0,proximity-7.4)*.96);
+    // Traffic lights: stop before the crosswalk on red, and on yellow when there is room to brake.
+    let signalHold=false;
+    if(signals) {
+      const toward=(junction.x-car.x)*sx+(junction.z-car.z)*sz;
+      const light=signals.state(junction.id,Math.abs(sx)>Math.abs(sz)?'x':'z');
+      const stopAt=7.6+(car.halfLength??2.4);
+      if(light!=='green' && toward>stopAt-.5 && toward<stopAt+40) {
+        const room=toward-stopAt;
+        if(light==='red' || room>car.speed*car.speed/11) {
+          desired=Math.min(desired,Math.max(0,room)*.8);
+          signalHold=true;
+        }
+      }
+    }
     const normalSpeed=safeSpeed(car,active.vehicles,people,desired);
-    if(!driver.pass && !driver.maneuver && !yielding && normalSpeed<desired*(bike?.88:.78) && (!point.curve || proximity>(bike?8:11))) {
+    if(!driver.pass && !driver.maneuver && !yielding && !signalHold && normalSpeed<desired*(bike?.88:.78) && (!point.curve || proximity>(bike?8:11))) {
       driver.pass=passingPath(car,active.vehicles,people,solids);
     }
     const passCommand=driver.pass?followPass(car,driver.pass,active.vehicles,dt,people):null;
@@ -340,14 +358,14 @@ export function driveTraffic(cars, active, people, solids, dt, zoneOwners) {
     const normal=passCommand??steeringCommand(car,point,normalSpeed);
     if(!passCommand && normalSpeed<.4) normal.throttle=0;
     const x=car.x,z=car.z;
-    const command=recoverDriver(car,driver,point,active.vehicles,people,solids,dt,normal,!yielding || driver.stuck>4.4);
+    const command=recoverDriver(car,driver,point,active.vehicles,people,solids,dt,normal,!(yielding || signalHold) || driver.stuck>12);
     if(driver.maneuver) driver.pass=null;
     stepVehicle(car,dt,command,solids,active.vehicles);
-    driver.stuck=Math.hypot(car.x-x,car.z-z)<dt*.62?driver.stuck+dt:0;
+    driver.stuck=!signalHold && Math.hypot(car.x-x,car.z-z)<dt*.62?driver.stuck+dt:signalHold?driver.stuck:0;
   }
 }
 
 export function positionAvailable(car, vehicles, observer, solids) {
-  return distance(car,observer)>13 && vehicleClear(car.x,car.z,car.angle,solids,car.kind) &&
+  return distance(car,observer)>13 && vehicleClear(car.x,car.z,car.angle,solids,car.shape??car.kind) &&
     vehicles.every(other=>distance(other,car)>5.2);
 }

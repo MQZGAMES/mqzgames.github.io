@@ -5,6 +5,7 @@ import { groundHeight } from './contact.js';
 import { addDistrictBuilding } from './district-buildings.js';
 import { districtSpatial } from './district-spatial.js';
 import { createProps } from './props.js';
+import { createSignals } from './signals.js';
 
 let seed = 473021;
 function random() {
@@ -173,6 +174,13 @@ export function createWorld(scene) {
       for(const side of [-1,1]) box(x+u+side*1.17,2.03,z+5.07,.34,1.27,.05,0x5f7b6a);
     }
     facadeText('CASA 38',x+1.6,1.62,z+5.13,0,0x4a4832,.92,.22);
+    // Garage beside the house, with a roller door and a driveway to the street.
+    blockBox(x+9.6,1.6,z-.4,6,3.2,8,0xbfa27f);
+    box(x+9.6,3.27,z-.4,6.3,.16,8.3,0x7e5a46,true);
+    box(x+9.6,1.32,z+3.62,4.4,2.5,.08,0x8d9496);
+    for(let y=.3;y<2.6;y+=.28) box(x+9.6,y,z+3.67,4.3,.025,.02,0x6f7678);
+    box(x+9.6,.173,z+8.6,4.8,.03,9.8,0x9c968a);
+    facadeText('GARAGEM',x+9.6,2.85,z+3.68,0,0x3b3a33,1.4,.26);
   }
   function policeStation() {
     const y=station.z;
@@ -247,8 +255,10 @@ export function createWorld(scene) {
           const address=plot+10;
           const kind=armory?'armory':plot%5===1?'shop':plot%5===3?'shop':plot%5===0?'house':'apartments';
           const shopNames=['CAFÉ SOL','MERCADO BRASA','QUITANDA DA RUA','ARMAZÉM LUZ','BAR DO PORTO','PADARIA IPÊ'];
-          const name=kind==='shop'?shopNames[Math.floor(plot/2)%shopNames.length]:
-            kind==='apartments'?'ED. '+['IPÊ','VISTA','BRISA','ESTAÇÃO','HORIZONTE','CAPITAL'][Math.floor(plot/2)%6]:'CASA '+address;
+          const service=armory?'armory':address===13?'barber':address===18?'clothes':address===21?'black':kind==='shop'?'store':null;
+          const special={barber:'BARBEARIA DO ZÉ',clothes:'MODA BRASA',black:'PENHORES 24H'}[service];
+          const name=special??(kind==='shop'?shopNames[Math.floor(plot/2)%shopNames.length]:
+            kind==='apartments'?'ED. '+['IPÊ','VISTA','BRISA','ESTAÇÃO','HORIZONTE','CAPITAL'][Math.floor(plot/2)%6]:'CASA '+address);
           const color=pick([0xbc8469,0xc3a378,0x898f75,0x95a69a,0xd0ac84,0xa7735f,0xb9a991]);
           const building=addDistrictBuilding(architecture,{
             id:armory?'armory':'lot-'+address,kind,label:armory?'LOJA DE ARMAS':name,
@@ -258,6 +268,7 @@ export function createWorld(scene) {
             awning:pick([0x775840,0x5e776f,0x9f6855]),fabrics:pick([0x708277,0x7c6663,0x917b5c]),
             stories:plot%3===0?3:2,doorAt:armory?0:undefined,open:kind==='house'&&plot%3!==0
           });
+          building.service=service;
           buildings.push(building);
           const plazaZ=armory?4.32:z+9.83;
           box(x+side*6.8,.168,plazaZ,8.30,.017,2.51,0xa69f8c);
@@ -275,7 +286,7 @@ export function createWorld(scene) {
         const bx=x+side*10.1;
         props.add('bin',bx,z-side*12.55,0,1,{w:.5,d:.5,h:.78});
         props.add('bollard',bx+.72,z-side*12.58,0,1,{w:.14,d:.14,h:.46});
-        tree(x+side*12.3,z+side*12.3);
+        if(!(x===residence.x && z===residence.z && side===1)) tree(x+side*9.4,z+side*12.6);
       }
     }
   }
@@ -289,6 +300,7 @@ export function createWorld(scene) {
     box(x,height*.5-1,z,3+random()*9,height,4+random()*8,pick([0x9b8d82,0x888e8d,0x9a8b82]),false);
   }
   props.finalize();
+  const signals=createSignals(scene,solid);
   const material=new T.MeshStandardMaterial({roughness:.88});
   for (const {shape,shadow,items} of Object.values(batches)) {
     const instance = new T.InstancedMesh(geometries[shape],material,items.length);
@@ -311,7 +323,7 @@ export function createWorld(scene) {
   beacon.position.y=2.8;
   marker.add(beacon);
   scene.add(marker);
-  return {solid,marker,beacon,sun,sky,houseRoof,bed,doors,buildings,props,
+  return {solid,marker,beacon,sun,sky,houseRoof,bed,doors,buildings,props,signals,
     ...districtSpatial(solid,support,volume,doors,groundHeight)};
 }
 

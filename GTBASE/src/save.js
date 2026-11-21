@@ -1,18 +1,32 @@
 import { clamp, residence } from './rules.js';
+import { cleanLook } from './looks.js';
 
 const saveKey='gtbase:progress:1';
+const whole=(value,max)=>Number.isFinite(value)?clamp(Math.floor(value),0,max):0;
+const vehicleModels=['sedan','hatch','wagon','taxi','pickup','van','suv','sport','muscle','luxury','convertible'];
+const bikeModels=['street','sport','chopper','scooter'];
+
 export function loadProgress(storage) {
   try {
     const record=JSON.parse((storage??globalThis.localStorage).getItem(saveKey));
     if(!record || record.version!==1 || !Number.isFinite(record.cash) ||
        !Number.isFinite(record.ammo) || !Number.isFinite(record.health)) return null;
+    const stash=record.stash??{};
+    const stored=record.garage;
+    const garage=stored && (stored.kind==='car' && vehicleModels.includes(stored.model) || stored.kind==='bike' && bikeModels.includes(stored.model)) &&
+      Number.isInteger(stored.color) && stored.color>=0 && stored.color<=0xffffff?{kind:stored.kind,model:stored.model,color:stored.color}:null;
     return {
       x:residence.x+2.5,z:residence.z-2.73,
       cash:clamp(Math.floor(record.cash),0,999999),
       armed:record.armed===true,
       equipped:record.equipped===true,
       ammo:clamp(Math.floor(record.ammo),0,360),
+      rifle:record.rifle===true,
+      rifleAmmo:whole(record.rifleAmmo,900),
       health:clamp(Math.floor(record.health),1,100),
+      look:cleanLook(record.look),
+      stash:{weed:whole(stash.weed,999),coke:whole(stash.coke,999),ecstasy:whole(stash.ecstasy,999)},
+      garage,
       recruits:Array.isArray(record.recruits)?[...new Set(record.recruits.filter(id=>
         Number.isInteger(id) && id>=0 || typeof id==='string' && /^[\w:-]{1,80}$/.test(id)))]:[]
     };

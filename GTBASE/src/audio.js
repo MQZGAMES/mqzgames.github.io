@@ -38,8 +38,25 @@ export function createAudio() {
     osc.start(cursor);
     osc.stop(cursor+length);
   }
+  function noise(length,volume,cutoff) {
+    if(!context || !enabled || context.state!=='running') return;
+    const buffer=context.createBuffer(1,Math.floor(context.sampleRate*length),context.sampleRate);
+    const data=buffer.getChannelData(0);
+    for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*Math.pow(1-i/data.length,2.2);
+    const source=context.createBufferSource();
+    source.buffer=buffer;
+    const filter=context.createBiquadFilter();
+    filter.type='lowpass';filter.frequency.value=cutoff;
+    const gain=context.createGain();
+    gain.gain.value=volume;
+    source.connect(filter).connect(gain).connect(output);
+    source.start();
+  }
   return {
     start,
+    explosion(){noise(1.4,1.1,620);tone(70,24,1.1,.7,'sawtooth');},
+    rifle(){noise(.12,.55,2400);tone(240,60,.09,.4,'square');},
+    sale(){tone(880,1320,.12,.18);tone(1320,1760,.16,.14,'sine',.08);},
     get enabled(){return enabled;},
     toggle(){
       enabled=!enabled;

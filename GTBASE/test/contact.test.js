@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { person, motorcycle, coupe, poseCar, ridePerson, animatePerson } from '../src/models.js';
+import { person, ridePerson, animatePerson } from '../src/models.js';
+import { motorcycle, coupe, poseCar } from '../src/cars.js';
 import { groundHeight, moveActor, sweptVehicleHits, threatensPlayer } from '../src/contact.js';
 import { vehicleContains, resetVehicle, stepVehicle } from '../src/vehicle.js';
 import { passingPath, followPass } from '../src/traffic.js';
@@ -27,7 +28,7 @@ test('a car straddling a curb keeps each wheel above its own ground level',()=>{
   const car=coupe(new T.Scene(),0x857c57);
   resetVehicle(car,{x:13.67,z:0,angle:0});
   poseCar(car,0);
-  const levels=car.wheels.map(wheel=>wheel.getWorldPosition(new T.Vector3()).y-.408);
+  const levels=car.wheels.map(wheel=>wheel.getWorldPosition(new T.Vector3()).y-car.wheelRadius);
   levels.forEach((level,index)=>assert.ok(Math.abs(level-groundHeight(car.x+car.wheels[index].position.x,car.wheels[index].position.z))<1e-8));
   assert.ok(Math.max(...levels)-Math.min(...levels)>.12);
 });

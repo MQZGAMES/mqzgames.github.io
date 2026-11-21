@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#102827">
   <meta name="description" content="GTBASE. Explore Vila Brasa em um jogo 3D de ação em mundo aberto da MQZGames.">
   <title>GTBASE · Vila Brasa</title>
-  <link rel="stylesheet" href="style.css?v=streetscape4">
-  <script type="module" src="game.js?v=cabin6"></script>
+  <link rel="stylesheet" href="style.css?v=streetlife7">
+  <script type="module" src="game.js?v=streetlife7"></script>
 </head>
 <body>
   <main id="game" aria-label="GTBASE, Vila Brasa">
@@ -18,7 +18,8 @@
         <p id="chapter">VILA BRASA</p>
         <h1 id="objective">Exploração livre</h1>
         <p id="detail"></p>
-        <p id="resources"><span id="cash">R$ 260</span><span id="crew">Gangue 0</span></p>
+        <p id="resources"><span id="cash">R$ 260</span><span id="crew">Gangue 0</span><span id="stash" hidden></span></p>
+        <p id="selling" hidden></p>
       </div>
       <div class="utilities">
         <button id="pause" type="button" aria-label="Pausar">Ⅱ</button>
@@ -29,6 +30,7 @@
       <div id="crosshair" hidden aria-hidden="true"></div>
       <div id="hitmark" hidden aria-hidden="true">×</div>
       <div id="impact" hidden aria-hidden="true"></div>
+      <div id="damage-dir" aria-hidden="true"></div>
       <div id="info"><span id="mode"></span><strong id="reading"></strong><progress id="health" max="100" value="100" aria-label="Vida"></progress></div>
       <div id="touch" hidden>
         <div id="look" aria-label="Arraste para girar a câmera"></div>
@@ -42,6 +44,14 @@
           <button id="weapon" type="button">Arma</button>
           <button id="jump" type="button">Pular</button>
           <button id="recruit" type="button">Recrutar</button>
+          <button id="gang" type="button" aria-expanded="false">Gangue</button>
+          <button id="sell" type="button">Vender</button>
+        </div>
+        <div id="gang-menu" hidden role="group" aria-label="Ordens para a gangue">
+          <button type="button" data-order="follow">Seguir</button>
+          <button type="button" data-order="wait">Esperar aqui</button>
+          <button type="button" data-order="attack">Atacar alvo</button>
+          <button type="button" data-order="dealer">Ponto de venda</button>
         </div>
       </div>
     </div>
@@ -50,8 +60,9 @@
       <h2 id="shop-title">Loja de armas</h2>
       <p id="shop-detail"></p>
       <p id="shop-balance"></p>
+      <div id="shop-list"></div>
+      <p id="shop-status" role="status"></p>
       <div class="shop-actions">
-        <button id="buy" type="button">Comprar pistola</button>
         <button id="close-shop" type="button">Voltar à rua</button>
       </div>
     </dialog>
@@ -69,10 +80,10 @@
         </div>
         <details id="help">
           <summary>Como jogar</summary>
-          <p><b>Toque</b> · Analógico esquerdo para mover ou dirigir. Arraste à direita para olhar. Toque em Mirar para travar a mira e use Atirar com a outra mão. Arma alterna entre pistola e punhos.</p>
-          <p><b>PC</b> · WASD para andar, Shift para correr, E para interagir, R para socar. Mouse direito mira e esquerdo atira ou soca com os punhos selecionados. Roda do mouse ou V troca de arma, G recruta e Espaço pula ou aciona o freio de mão.</p>
-          <p><b>Xbox</b> · Analógicos para movimento e câmera. Y interage, B soca, X pula ou aciona o freio de mão, LT mira ou freia e RT atira ou acelera. Direcional para cima recruta, para direita troca de arma. Menu pausa.</p>
-          <p><b>Vila Brasa</b> · Mire com os punhos ou a pistola para recrutar. Mire em um pedestre ou veículo e ataque para a gangue atirar nele. Ao entrar em um carro, até três integrantes embarcam junto. Aponte a pistola por cinco segundos para render pedestres ou atendentes. Entre nas lojas pelas portas da frente. Salve na entrada de casa.</p>
+          <p><b>Toque</b> · Analógico esquerdo para mover ou dirigir. Arraste à direita para olhar. Mirar trava a mira com leve ajuste automático. Arma alterna entre punhos, pistola e fuzil. Gangue abre as ordens e Vender liga o seu ponto de venda.</p>
+          <p><b>PC</b> · WASD anda, Shift corre, E interage, R soca. Mouse direito mira e esquerdo atira. Roda ou V troca de arma, G recruta, Espaço pula ou puxa o freio de mão. Teclas 1 a 4 dão ordens à gangue: seguir, esperar, atacar o alvo mirado e virar ponto de venda. B liga ou desliga o seu ponto de venda.</p>
+          <p><b>Xbox</b> · Analógicos movem e giram a câmera. Y interage, B soca, X pula, LT mira e RT atira. Direcional: cima recruta, direita troca de arma, esquerda alterna seguir e esperar, baixo liga o ponto de venda. LB manda atacar o alvo mirado e RB transforma um integrante em ponto de venda. Nas lojas, o direcional escolhe e A compra.</p>
+          <p><b>Vila Brasa</b> · Lojas: armas, roupas, barbearia e o mercado negro da casa de penhores, que vende fuzil e drogas no atacado. Com estoque, ligue o ponto de venda e os pedestres vêm comprar. Se a polícia vir, vira crime. Uma testemunha pode chamar a polícia. Pedestres agredidos podem revidar. Guarde um carro na garagem ao lado de casa e salve na entrada.</p>
         </details>
       </div>
     </section>

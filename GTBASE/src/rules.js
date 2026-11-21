@@ -5,6 +5,8 @@ export const spawn = { x: 11.7, z: 3.2 };
 export const weaponShop = { x: 12.05, z: -5.45 };
 export const station = {x:2,z:38};
 export const residence = {x:38,z:-38};
+/** Garage door, the stored car's resting spot and the place where it is brought out. */
+export const garage = {door:{x:47.6,z:-33.0},inside:{x:47.6,z:-38.4,angle:0},out:{x:47.6,z:-29.6,angle:0}};
 export const bed = {x:42.3,z:-41.25};
 export const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
