@@ -194,14 +194,18 @@ export function ridePerson(person,vehicle) {
   }
 }
 
+/** Length stretch that turns the original 4.24 m body into a 4.8 m four-door saloon with room for four. */
+export const CAR_STRETCH=1.13;
+
 export function coupe(scene, color, police = false) {
+  const k=CAR_STRETCH;
   const root = new T.Group();
-  contact(root,1.14,2.21);
+  contact(root,1.14,2.21*k);
   const body = new T.Group();
   root.add(body);
-  const add = (shape, shade, x,y,z,w,h,d, shiny = false) => piece(body,shape,shade,x,y,z,w,h,d,shiny);
-  // Four-door saloon, about 4.3 m by 1.9 m: underbody sits inboard so the tyres show under the body line.
-  add('box',0x252a2d,0,.40,0,1.50,.32,3.70);
+  const add = (shape, shade, x,y,z,w,h,d, shiny = false) => piece(body,shape,shade,x,y,z*k,w,h,d*k,shiny);
+  // Four-door saloon, about 4.8 m by 1.9 m: underbody sits inboard so the tyres show under the body line.
+  add('box',0x252a2d,0,.35,0,1.50,.44,3.70);
   for(const side of [-1,1]) add('box',0x2b3033,side*.90,.44,0,.12,.22,1.66);
   for(const end of [-1,1]) add('box',0x2b3033,0,.42,end*1.96,1.86,.30,.42);
   add('box',color,0,.72,0,1.94,.43,4.24,true);
@@ -212,16 +216,37 @@ export function coupe(scene, color, police = false) {
     -.87,.92,-1.45, .87,.92,-1.45, .87,.92,.80, -.87,.92,.80,
     -.71,1.49,-1.06, .71,1.49,-1.06, .71,1.49,.26, -.71,1.49,.26
   ];
+  for(let i=2;i<vertices.length;i+=3) vertices[i]*=k;
   windows.setAttribute('position', new T.Float32BufferAttribute(vertices,3));
   windows.setIndex([0,4,5,0,5,1, 1,5,6,1,6,2, 2,6,7,2,7,3, 3,7,4,3,4,0, 4,7,6,4,6,5]);
   windows.computeVertexNormals();
-  const cabin = new T.Mesh(windows,new T.MeshStandardMaterial({color:0x365964,roughness:.24,metalness:.42,flatShading:true,side:T.DoubleSide}));
-  cabin.castShadow = true;
+  // Tinted, see-through glass so the driver and passengers read from outside.
+  const cabin = new T.Mesh(windows,new T.MeshStandardMaterial({color:0x2c4b57,roughness:.12,metalness:.35,flatShading:true,
+    side:T.DoubleSide,transparent:true,opacity:.5,depthWrite:false}));
+  cabin.castShadow = false;
+  cabin.renderOrder = 2;
   body.add(cabin);
+  // Interior: two front seats, a rear bench, dashboard and steering wheel.
+  for(const side of [-1,1]) {
+    add('box',0x3a3733,side*.42,.66,.05,.52,.12,.52);
+    add('box',0x3a3733,side*.42,.98,-.26,.50,.62,.12);
+    add('box',0x302d2a,side*.42,1.33,-.27,.24,.16,.10);
+  }
+  add('box',0x3a3733,0,.66,-.92,1.52,.12,.54);
+  add('box',0x3a3733,0,.98,-1.21,1.52,.60,.12);
+  add('box',0x2b2a28,0,.98,.66,1.70,.14,.34);
+  // Roof pillars keep the roof visibly attached through the tinted glass.
+  for(const side of [-1,1]) {
+    add('box',color,side*.79,1.21,.53,.08,0.828,.08/k,true).rotation.x=-0.828;
+    add('box',color,side*.79,1.21,-.40,.08,.56,.10/k,true);
+    add('box',color,side*.79,1.21,-1.255,.08,0.713,.12/k,true).rotation.x=0.667;
+  }
+  const steering=add('cylinder',0x1d1d1d,-.42,1.0,.44,.17,.03,.17);
+  steering.rotation.x=Math.PI/2-.45;
   const door=new T.Group();
-  door.position.set(-.974,0,.79);
-  piece(door,'box',color,0,.75,-.65,.036,.38,1.28,true);
-  piece(door,'box',0xccc1a7,-.024,.881,-.37,.04,.04,.15,true);
+  door.position.set(-.974,0,.79*k);
+  piece(door,'box',color,0,.75,-.65*k,.036,.38,1.28*k,true);
+  piece(door,'box',0xccc1a7,-.024,.881,-.37*k,.04,.04,.15,true);
   combineParts(door,meshes(door),paintMat);
   body.add(door);
   add('box',color,0,1.495,-.40,1.43,.075,1.30,true);
@@ -239,7 +264,7 @@ export function coupe(scene, color, police = false) {
     for(const handle of [.42,-.74]) add('box',0xc7bba4,side*.98,.89,handle,.035,.040,.22,true);
     for (const z of [-1.31,1.33]) {
       const axle = new T.Group();
-      axle.position.set(side*.83,.39,z);
+      axle.position.set(side*.83,.39,z*k);
       root.add(axle);
       piece(axle,'cylinder',0x252628,0,0,0,.408,.24,.408).rotation.z = Math.PI / 2;
       piece(axle,'cylinder',0xa8a7a4,side*.115,0,0,.217,.02,.217,true).rotation.z = Math.PI / 2;
@@ -264,11 +289,11 @@ export function coupe(scene, color, police = false) {
     const cloud=new T.Mesh(sphere,cloudMaterial);
     smoke.add(cloud);
   }
-  smoke.position.set(0,1.04,1.25);
+  smoke.position.set(0,1.04,1.25*k);
   smoke.visible=false;
   root.add(smoke);
   scene.add(root);
-  return {root,body,cabin,wheels,lamps,hood,smoke,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
+  return {root,body,cabin,cracks:[],wheels,lamps,hood,smoke,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
     steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,smokeTime:0,kind:'car',rider:null,door,doorTime:0,wheelSpin:0,handlebar:null};
 }
 
@@ -375,4 +400,88 @@ export function poseFall(person,time,dir) {
   person.forearms[1].rotation.set(-.3*flail-.3,0,0);
   person.pistol.visible=false;
   return tilt;
+}
+
+const seatSpots=[[-.42,.05],[.42,.05],[-.42,-.92],[.42,-.92]];
+const seatPoint=new T.Vector3();
+/** Seats a person in a car: 0 driver, 1 front passenger, 2 and 3 on the rear bench. */
+export function seatPerson(person,car,seat) {
+  const [x,z]=seatSpots[seat]??seatSpots[3];
+  car.root.updateMatrixWorld(true);
+  person.root.position.copy(car.body.localToWorld(seatPoint.set(x,.54-.94,z*CAR_STRETCH)));
+  person.root.quaternion.copy(car.body.getWorldQuaternion(limbRotation));
+  person.root.visible=true;
+  person.shadow.visible=false;
+  person.pistol.visible=false;
+  person.body.position.set(0,0,0);
+  person.body.rotation.set(-.12,0,0);
+  for(let i=0;i<2;i++) {
+    person.legs[i].rotation.set(-1.42,0,(i?1:-1)*.06);
+    person.shins[i].rotation.set(.95,0,0);
+    if(seat===0) {
+      person.arms[i].rotation.set(-.62,0,(i?-1:1)*.18);
+      person.forearms[i].rotation.set(-.85,0,0);
+    } else {
+      person.arms[i].rotation.set(-.32,0,(i?-1:1)*.08);
+      person.forearms[i].rotation.set(-1.05,0,0);
+    }
+  }
+}
+
+let crackMaterial=null;
+const crackGeometry=new T.PlaneGeometry(.28,.28);
+const crackNormal=new T.Vector3(), crackCenter=new T.Vector3(), crackLocal=new T.Vector3();
+function makeCrackMaterial() {
+  const canvas=document.createElement('canvas');
+  canvas.width=canvas.height=128;
+  const ctx=canvas.getContext('2d');
+  ctx.strokeStyle='rgba(235,242,240,.9)';
+  ctx.lineWidth=1.6;
+  ctx.beginPath();
+  for(let i=0;i<11;i++) {
+    const a=i/11*Math.PI*2+Math.sin(i*7.1)*.2;
+    ctx.moveTo(64,64);
+    let x=64,y=64;
+    for(let step=1;step<=4;step++) {
+      x=64+Math.cos(a+Math.sin(step*3.1+i)*.12)*step*14;
+      y=64+Math.sin(a+Math.cos(step*2.3+i)*.12)*step*14;
+      ctx.lineTo(x,y);
+    }
+  }
+  for(const r of [9,20,33]) {
+    ctx.moveTo(64+r,64);
+    for(let i=1;i<=24;i++) ctx.lineTo(64+Math.cos(i/24*Math.PI*2)*r*(.9+Math.sin(i*5.3)*.1),64+Math.sin(i/24*Math.PI*2)*r*(.9+Math.sin(i*5.3)*.1));
+  }
+  ctx.stroke();
+  ctx.fillStyle='rgba(250,250,245,.95)';
+  ctx.beginPath();ctx.arc(64,64,3.2,0,Math.PI*2);ctx.fill();
+  const map=new T.CanvasTexture(canvas);
+  map.colorSpace=T.SRGBColorSpace;
+  return new T.MeshBasicMaterial({map,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,side:T.DoubleSide});
+}
+
+/** Leaves a spider-web crack on the glass where a bullet passed; the oldest crack fades out after eight. */
+export function crackGlass(car,point) {
+  if(!car.cabin) return;
+  crackMaterial??=makeCrackMaterial();
+  car.root.updateMatrixWorld(true);
+  crackLocal.set(point[0],point[1],point[2]);
+  car.body.worldToLocal(crackLocal);
+  crackCenter.set(0,1.2,-.4*CAR_STRETCH);
+  crackNormal.subVectors(crackLocal,crackCenter);
+  crackNormal.y*=.35;
+  crackNormal.normalize();
+  const mark=new T.Mesh(crackGeometry,crackMaterial);
+  mark.position.copy(crackLocal).addScaledVector(crackNormal,.015);
+  mark.lookAt(crackLocal.clone().add(crackNormal));
+  mark.rotation.z=Math.random()*Math.PI*2;
+  mark.renderOrder=3;
+  car.body.add(mark);
+  car.cracks.push(mark);
+  if(car.cracks.length>8) car.cracks.shift().removeFromParent();
+}
+
+export function clearCracks(car) {
+  for(const mark of car.cracks??[]) mark.removeFromParent();
+  if(car.cracks) car.cracks.length=0;
 }

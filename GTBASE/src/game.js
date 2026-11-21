@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { createWorld } from './world.js';
-import { animatePerson, coupe, motorcycle, person, poseCar, poseFall, ridePerson } from './models.js';
+import { animatePerson, CAR_STRETCH, coupe, crackGlass, motorcycle, person, poseCar, poseFall, ridePerson, seatPerson } from './models.js';
 import { blocks, roads, spawn, weaponShop, station, residence, clamp, clear, distance, move, turn } from './rules.js';
 import { resetVehicle, stepVehicle } from './vehicle.js';
 import { driveTraffic, positionAvailable, resetDriver } from './traffic.js';
@@ -101,6 +101,9 @@ function start() {
     npc.model.root.visible=false;
     return npc;
   });
+  traffic.forEach((car,i)=>{if(car.kind==='car') car.ownDriver=ejected[i];});
+  const spareDriver=()=>ejected.find(npc=>npc.seated && !npc.riding && !cars.some(car=>car.ownDriver===npc && car.driver));
+  const carDriver=car=>car.ownDriver?.seated && !car.ownDriver.riding?car.ownDriver:spareDriver();
   const pedestrians=[...civilians,...clerks,...police.map(unit=>unit.officer),...ejected];
   let activePeople=pedestrians;
   const actorIndex=new Map(pedestrians.map(npc=>[npc.id,npc]));
@@ -353,7 +356,7 @@ function start() {
     if(!forced && Math.hypot(driving.vx,driving.vz)>4.2) {announce('Reduza a velocidade para sair.');return;}
     const side=driving.kind==='bike'?1.02:1.64;
     const spots=[side,-side,side+.53,-side-.53].map(offset=>[x+Math.cos(angle)*offset,z-Math.sin(angle)*offset]);
-    spots.push([x-Math.sin(angle)*2.75,z-Math.cos(angle)*2.75],[x+Math.sin(angle)*2.77,z+Math.cos(angle)*2.77]);
+    spots.push([x-Math.sin(angle)*3.05,z-Math.cos(angle)*3.05],[x+Math.sin(angle)*3.05,z+Math.cos(angle)*3.05]);
     const slot=spots.find(([px,pz])=>actorClear({x:px,z:pz},px,pz,world.walkSolids(px,pz,0),cars,activePeople,.36));
     if(!slot && !forced) {announce('Sem espaço para abrir a porta.');return;}
     [player.x,player.z]=slot??[spawn.x,spawn.z];
@@ -394,7 +397,7 @@ function start() {
     const car=carAt();
     if(!car) {announce(lockedDoor()?'Porta trancada.':'Nada para interagir aqui.');return;}
     if(car.driver) {
-      const driver=ejected.find(npc=>npc.seated && !npc.riding)??ejected.find(npc=>npc.exitAge>14 && npc.role==='civilian' && distance(npc,player)>11);
+      const driver=carDriver(car)??ejected.find(npc=>npc.exitAge>14 && npc.role==='civilian' && distance(npc,player)>11);
       if(driver) {
         const dir=car.angle-Math.PI/2;
         const x=car.x+Math.sin(dir)*(car.kind==='bike'?.95:1.51);
@@ -418,13 +421,14 @@ function start() {
     player.lift=0;
     Object.assign(player,{vx:0,vz:0,pushX:0,pushZ:0,trip:0});
     jumpVelocity=0;
-    player.model.root.visible=car.kind==='bike';
+    player.model.root.visible=true;
+    player.model.shadow.visible=false;
     if(!car.stolen) {car.stolen=true;wanted(13);}
     car.passengers??=[];
     if(car.kind==='car') {
       const riders=gang.filter(npc=>living(npc) && distance(npc,car)<35)
         .sort((a,b)=>distance(a,car)-distance(b,car)).slice(0,3-car.passengers.length);
-      riders.forEach((npc,i)=>{npc.boardCar=car;npc.boardSide=i%2?1:-1;npc.boardRow=i===0?.55:-.75;});
+      riders.forEach((npc,i)=>{npc.boardCar=car;npc.boardSide=i===1?-1:1;npc.boardRow=i===0?.62:-1.0;});
     }
     yaw=car.angle;
     cameraIdle=0;
@@ -522,7 +526,7 @@ function start() {
     }
     if(candidate) return candidate;
     const boxes=cars.filter(car=>car!==driving && car.integrity>0 && distance(player,car)<32).map(car=>({car,
-      oriented:{center:[car.x,car.root.position.y+.8,car.z],half:car.kind==='bike'?[.4,.75,1.1]:[1.0,.75,2.15],angle:car.angle}}));
+      oriented:{center:[car.x,car.root.position.y+.8,car.z],half:car.kind==='bike'?[.4,.75,1.1]:[1.0,.75,2.42],angle:car.angle}}));
     return traceShot(camera.position.toArray(),shotDirection.toArray(),solids,boxes,34).hit?.car??null;
   }
 
@@ -548,7 +552,7 @@ function start() {
   function ejectOccupant(car,damage,from) {
     const unit=policeCar(car);
     const patrol=unit && unit.officer.seated && ['driving','patrol'].includes(unit.mode)?unit:null;
-    const victim=patrol?.officer??(car.driver?ejected.find(npc=>npc.seated && !npc.riding):null);
+    const victim=patrol?.officer??(car.driver?carDriver(car):null);
     if(!victim) return false;
     if(!patrol) resetActor(victim);
     const side=car.angle-Math.PI/2, reach=car.kind==='bike'?.95:1.55;
@@ -563,7 +567,7 @@ function start() {
   }
 
   /** NPC bullet against a vehicle: bodywork, then glass, then whoever sits behind the broken glass. */
-  function shootVehicle(car,height,shooter) {
+  function shootVehicle(car,height,shooter,point) {
     if(car.kind==='bike') {
       if(height>.85 || Math.random()<.45) {
         if(car===driving) {
@@ -576,13 +580,13 @@ function start() {
       return;
     }
     if(height>.92) {
-      if(car.cabin?.visible) {
-        car.cabin.visible=false;
-        if(car===driving) announce('Vidros estourados.');
-        return;
-      }
-      if(car===driving) harm(player,16,shooter);
-      else if(Math.random()<.5) ejectOccupant(car,70,shooter);
+      crackGlass(car,point);
+      if(car===driving) {
+        const riders=(car.passengers??[]).filter(npc=>npc.health>0);
+        const victim=riders.length && Math.random()<riders.length/(riders.length+1.6)?riders[Math.floor(Math.random()*riders.length)]:player;
+        harm(victim,victim===player?16:24,shooter);
+        if(victim===player) announce('Tiro atravessou o vidro.');
+      } else ejectOccupant(car,38+Math.round(Math.random()*30),shooter);
       return;
     }
     car.integrity=Math.max(0,car.integrity-5);
@@ -590,12 +594,12 @@ function start() {
 
   function seatPoint(car,npc) {
     const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
-    const row=npc.boardRow??-.75;
+    const row=(npc.boardRow??-1.0)*CAR_STRETCH*.9;
     for(const side of [npc.boardSide??1,-(npc.boardSide??1)]) {
       const point={x:car.x+sz*side*1.5+sx*row,z:car.z-sx*side*1.5+sz*row};
       if(actorClear(npc,point.x,point.z,world.walkSolids(point.x,point.z,0),[],[],.3)) return point;
     }
-    return {x:car.x-sx*2.8,z:car.z-sz*2.8};
+    return {x:car.x-sx*3.1,z:car.z-sz*3.1};
   }
 
   function boardVehicle(npc,dt) {
@@ -610,7 +614,7 @@ function start() {
     const dx=npc.x-car.x,dz=npc.z-car.z;
     const along=dx*sx+dz*sz, lateral=dx*sz-dz*sx;
     const doorLateral=(door.x-car.x)*sz-(door.z-car.z)*sx;
-    if(distance(npc,door)<.75 || distance(npc,car)<1.9 || Math.abs(lateral)>1.2 && Math.abs(lateral)<1.95 && Math.abs(along)<1.6) {
+    if(distance(npc,door)<.75 || distance(npc,car)<1.9 || Math.abs(lateral)>1.2 && Math.abs(lateral)<1.95 && Math.abs(along)<1.85) {
       npc.seated=true;npc.riding=car;npc.boardCar=null;
       npc.model.root.visible=false;
       car.passengers.push(npc);
@@ -623,7 +627,7 @@ function start() {
       return guide(npc,door,4.8,dt);
     }
     const side=Math.sign(doorLateral)||1, end=Math.sign(along)||1;
-    const hold=end*Math.max(2.75,Math.abs(along));
+    const hold=end*Math.max(3.05,Math.abs(along));
     return guide(npc,{x:car.x+sx*hold+sz*side*1.65,z:car.z+sz*hold-sx*side*1.65},4.8,dt);
   }
 
@@ -633,7 +637,7 @@ function start() {
     if(!car) return;
     car.passengers=(car.passengers??[]).filter(other=>other!==npc);
     const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
-    const spots=[[1.6,-.75],[-1.6,-.75],[1.6,.55],[-1.6,.55],[0,-3],[2.3,0],[-2.3,0],[0,3.1]].map(([side,row])=>
+    const spots=[[1.6,-1.0],[-1.6,-1.0],[1.6,.62],[-1.6,.62],[0,-3.3],[2.3,0],[-2.3,0],[0,3.4]].map(([side,row])=>
       ({x:car.x+sz*side+sx*row,z:car.z-sx*side+sz*row}));
     const spot=spots.find(point=>actorClear(npc,point.x,point.z,world.walkSolids(point.x,point.z,0),cars.filter(other=>other!==car),activePeople,.3))??spots[0];
     Object.assign(npc,spot,{seated:false,floorY:0,angle:car.angle,exitAnim:.3,exitSide:1});
@@ -642,11 +646,27 @@ function start() {
     npc.model.shadow.visible=true;
   }
 
+  function seatOccupants(actor) {
+    for(const car of cars) {
+      if(car.kind!=='car') continue;
+      const near=distance(car,actor)<70;
+      const unit=policeCar(car);
+      const officer=unit && unit.officer.seated && unit.officer.health>0 && ['driving','patrol'].includes(unit.mode)?unit.officer:null;
+      const own=car.ownDriver?.seated && car.driver && car!==driving?car.ownDriver:null;
+      const driver=car===driving?player:officer??own;
+      [driver,...(car.passengers??[])].forEach((occupant,seat)=>{
+        if(!occupant) return;
+        if(near) seatPerson(occupant.model,car,seat);
+        else occupant.model.root.visible=false;
+      });
+    }
+  }
+
   function updatePassengers(dt) {
     for(const npc of gang) {
       if(!npc.riding) continue;
       const car=npc.riding;
-      if(driving!==car) {unseat(npc);continue;}
+      if(driving!==car || npc.health<=0) {unseat(npc);continue;}
       npc.x=car.x;npc.z=car.z;npc.floorY=0;
       npc.attack-=dt;
       if(targetActive(gangTarget) && npc.attack<=0 && distance(car,gangTarget)<18) fireNPC(npc,gangTarget);
@@ -748,15 +768,15 @@ function start() {
       const width=car.kind==='bike'?.31:.96,length=car.kind==='bike'?1.08:1.84;
       const y=car.root.position.y;
       return {car,oriented:{center:[car.x,y+(car.kind==='bike'?.67:.56),car.z],
-        half:[width,car.kind==='bike'?.44:.40,length],angle:car.angle}};
+        half:[width,car.kind==='bike'?.44:.40,car.kind==='bike'?length:length*CAR_STRETCH],angle:car.angle}};
     });
     camera.getWorldDirection(shotDirection);
     const riders=cars.filter(car=>car.rider && car.driver).map(car=>({
       rider:car,oriented:{center:[car.x,car.root.position.y+1.42,car.z],half:[.32,.45,.33],angle:car.angle}
     }));
     const cabins=cars.filter(car=>car.cabin && car!==driving).map(car=>({
-      windowCar:car,oriented:{center:[car.x-.33*Math.sin(car.angle),car.root.position.y+1.21,car.z-.33*Math.cos(car.angle)],
-        half:[.80,.25,1.1],angle:car.angle}
+      windowCar:car,oriented:{center:[car.x-.37*Math.sin(car.angle),car.root.position.y+1.21,car.z-.37*Math.cos(car.angle)],
+        half:[.80,.25,1.25],angle:car.angle}
     }));
     const solids=scanSolids(),targets=[...candidates,...riders,...cabins,...vehicles];
     const origin=shotFrom.toArray();
@@ -778,7 +798,7 @@ function start() {
     } else if(hit?.rider || hit?.windowCar) {
       const car=hit.rider??hit.windowCar;
       tagForGang(car);
-      if(car.cabin) car.cabin.visible=false;
+      if(hit.windowCar) crackGlass(car,result.point);
       const seat={oriented:{center:[car.x-.42*Math.cos(car.angle),car.root.position.y+1.20,car.z+.42*Math.sin(car.angle)],
         half:[.26,.28,.29],angle:car.angle}};
       if(occupied(car) && (hit.rider || traceShot(origin,shot.direction,[],[seat],52).hit) && ejectOccupant(car,hit.rider?50:100,player)) {
@@ -850,10 +870,10 @@ function start() {
     const through=[.28,.5,.73,.92].some(t=>{
       const x=npc.x+(point.x-npc.x)*t,z=npc.z+(point.z-npc.z)*t;
       const dx=x-car.x,dz=z-car.z;
-      return Math.abs(dx*sx+dz*sz)<2.47 && Math.abs(dx*sz-dz*sx)<1.33;
+      return Math.abs(dx*sx+dz*sz)<2.75 && Math.abs(dx*sz-dz*sx)<1.33;
     });
     if(!through) return point;
-    const offset=(npc.x-car.x)*sx+(npc.z-car.z)*sz>0?2.9:-2.9;
+    const offset=(npc.x-car.x)*sx+(npc.z-car.z)*sz>0?3.2:-3.2;
     const side=(point.x-car.x)*sz-(point.z-car.z)*sx;
     return {x:car.x+sx*offset+sz*side,z:car.z+sz*offset-sx*side};
   }
@@ -861,7 +881,7 @@ function start() {
   function disembark(unit) {
     const npc=unit.officer,car=unit.car;
     const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
-    const next=doorApproach(car)??[{x:car.x-sx*2.83,z:car.z-sz*2.83},{x:car.x+sx*2.87,z:car.z+sz*2.87}]
+    const next=doorApproach(car)??[{x:car.x-sx*3.1,z:car.z-sz*3.1},{x:car.x+sx*3.1,z:car.z+sz*3.1}]
       .find(point=>actorClear(point,point.x,point.z,world.walkSolids(point.x,point.z,0),cars,activePeople,.37));
     if(!next) return false;
     npc.seated=false;
@@ -903,7 +923,8 @@ function start() {
     if(result.hit && (result.hit.actor===target || result.hit.actor.role==='civilian')) {
       const factor=npc.role==='police' && target===player?.62:.83;
       if(vehicle && result.hit.actor===vehicle) {
-        shootVehicle(vehicle,enemyFrom.y+dir.y*result.distance-vehicle.root.position.y,npc);
+        const struck=[enemyFrom.x+dir.x*result.distance,enemyFrom.y+dir.y*result.distance,enemyFrom.z+dir.z*result.distance];
+        shootVehicle(vehicle,struck[1]-vehicle.root.position.y,npc,struck);
       } else harm(result.hit.actor,Math.round(shotDamage(enemyFrom.y+dir.y*result.distance-result.hit.y)*factor),npc);
     }
     enemyTo.copy(enemyFrom).addScaledVector(dir,result.distance);
@@ -1070,7 +1091,13 @@ function start() {
           const next={};
           resetDriver(next,car.routeIndex);
           next.kind=car.kind;
-          if(positionAvailable(next,active.vehicles.filter(other=>other!==car),actor,vehicleSolids)) Object.assign(car,next);
+          if(positionAvailable(next,active.vehicles.filter(other=>other!==car),actor,vehicleSolids)) {
+            Object.assign(car,next);
+            const own=car.ownDriver;
+            if(own && !own.seated && !own.riding && own.role==='civilian' && distance(own,actor)>20) {
+              resetActor(own);own.seated=true;own.model.root.visible=false;
+            }
+          }
         }
       }
       if (car!==driving && car.impact>5 && distance(actor,car)<18 && impactCooldown<=0) {
@@ -1463,6 +1490,7 @@ function start() {
       camera.position.set(24+Math.sin(angle)*radius,14,17+Math.cos(angle)*radius);
       camera.lookAt(10,2,13);
       updatePeople(dt,player,true);
+      seatOccupants(player);
     } else if(playing) {
       padMode=control.mode;
       for(const car of cars) vehicleStarts.set(car,{x:car.x,z:car.z,vx:car.vx,vz:car.vz});
@@ -1512,6 +1540,7 @@ function start() {
       if(driving?.kind==='bike') ridePerson(player.model,driving);
       const actor=driving??player;
       updatePeople(dt,actor);
+      seatOccupants(actor);
       updateLoot(dt);
       audio.motor(driving?.speed??0,Boolean(driving));
       const target=driving??player;

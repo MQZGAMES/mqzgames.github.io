@@ -1,7 +1,7 @@
 import { clamp, clear } from './rules.js';
 
 const profiles={
-  car:{width:.99,length:2.135,radius:.98,offsets:[-1.17,0,1.17],mass:1},
+  car:{width:.99,length:2.41,radius:.98,offsets:[-1.43,0,1.43],mass:1.1},
   bike:{width:.35,length:1.105,radius:.39,offsets:[-.73,0,.73],mass:.39}
 };
 const profile=kind=>profiles[kind]??profiles.car;
@@ -9,7 +9,8 @@ const profile=kind=>profiles[kind]??profiles.car;
 /** @typedef {{x:number,z:number,angle:number,vx:number,vz:number,speed:number,integrity:number,steer:number,impact:number,kind?:string}} VehicleBody */
 
 export function resetVehicle(car, pose) {
-  if(car.cabin) car.cabin.visible=true;
+  for(const mark of car.cracks??[]) mark.removeFromParent();
+  if(car.cracks) car.cracks.length=0;
   Object.assign(car,pose,{vx:0,vz:0,speed:0,integrity:100,steer:0,impact:0});
 }
 
