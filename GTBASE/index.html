@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#102827">
   <meta name="description" content="GTBASE. Explore Vila Brasa em um jogo 3D de ação em mundo aberto da MQZGames.">
   <title>GTBASE · Vila Brasa</title>
-  <link rel="stylesheet" href="style.css?v=streetlife7">
-  <script type="module" src="game.js?v=streetlife7"></script>
+  <link rel="stylesheet" href="style.css?v=vielas8">
+  <script type="module" src="game.js?v=vielas8"></script>
 </head>
 <body>
   <main id="game" aria-label="GTBASE, Vila Brasa">
@@ -24,6 +24,8 @@
       <div class="utilities">
         <button id="pause" type="button" aria-label="Pausar">Ⅱ</button>
         <canvas id="map" width="256" height="256" aria-label="Mapa do bairro. Amarelo: loja. Bege: casa. Azul: delegacia. Vermelho: viaturas e policiais em ação. Verde: aliados."></canvas>
+        <button id="open-map" type="button">Mapa · M</button>
+        <button id="open-bag" type="button">Inventário · I</button>
         <span id="heat" hidden></span>
       </div>
       <div id="prompt" hidden></div>
@@ -89,5 +91,6 @@
     </section>
     <noscript>Ative o JavaScript para jogar GTBASE.</noscript>
   </main>
+<dialog id="atlas"><form method="dialog"><button>Fechar</button></form><h2>Mapa do bairro</h2><p>Selecione um destino. No controle, mova o cursor e confirme com A.</p><button id="mark-lajes" type="button">Marcar entrada da Vila das Lajes</button><canvas id="atlas-map" width="256" height="256"></canvas></dialog>
 </body>
 </html>

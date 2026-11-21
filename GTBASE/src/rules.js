@@ -12,7 +12,7 @@ export const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 export function clear(x, z, radius, solids) {
-  return Math.abs(x) + radius < halfWorld && Math.abs(z) + radius < halfWorld &&
+  return (Math.abs(x) + radius < halfWorld || x>60 && x+radius<84 && Math.abs(z)+radius<16) && Math.abs(z) + radius < halfWorld &&
     solids.every(box => {
       if (box.off) return true;
       const dx = x - clamp(x, box.x - box.w / 2, box.x + box.w / 2);

@@ -24,6 +24,7 @@ export function resetVehicle(car, pose) {
 }
 
 export function vehicleClear(x,z,angle,solids,kind='car') {
+  if(x>64 && !kind.startsWith('bike')) return false;
   const sx=Math.sin(angle), sz=Math.cos(angle);
   const {offsets,radius}=profile(kind);
   return offsets.every(offset=>clear(x+sx*offset,z+sz*offset,radius,solids));
@@ -73,7 +74,7 @@ function contact(car,x,z,angle,vehicles) {
 
 function takeImpact(car,strength) {
   if(strength<2.4) return;
-  car.integrity=Math.max(0,car.integrity-(strength-2.4)*2.6);
+  car.integrity=Math.max(0,car.integrity-(strength-2.4)*1.15);
   car.impact=Math.max(car.impact,strength);
 }
 

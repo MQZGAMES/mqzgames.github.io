@@ -210,7 +210,7 @@ export function controls(onToggle, isPlaying) {
         recruit:once.has('recruit') || pressed(12),
         weapon:once.has('weapon') || pressed(15),
         jump:once.has('jump') || pressed(2),
-        confirm:pressed(0),
+        map:pressed(8),confirm:pressed(0),
         cancel:pressed(1),
         navUp:pressed(12),
         navDown:pressed(13),

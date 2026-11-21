@@ -25,6 +25,7 @@ export function loadProgress(storage) {
       rifleAmmo:whole(record.rifleAmmo,900),
       health:clamp(Math.floor(record.health),1,100),
       look:cleanLook(record.look),
+      wardrobe:Array.isArray(record.wardrobe)?record.wardrobe.filter(item=>item && typeof item.label==='string' && item.changes && typeof item.changes==='object'):[],
       stash:{weed:whole(stash.weed,999),coke:whole(stash.coke,999),ecstasy:whole(stash.ecstasy,999)},
       garage,
       recruits:Array.isArray(record.recruits)?[...new Set(record.recruits.filter(id=>

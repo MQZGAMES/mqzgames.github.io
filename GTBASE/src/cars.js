@@ -10,37 +10,37 @@ import { registerShape } from './vehicle.js';
  */
 export const carModels={
   sedan:{name:'Brasa',category:'dia a dia',length:4.8,width:1.94,sill:.505,belt:.935,roof:1.49,wheel:.41,wheelbase:2.98,
-    cabin:{base:[-1.64,.90],top:[-1.20,.29]},seats:[[-.42,.06],[.42,.06],[-.42,-1.04],[.42,-1.04]],doors:4,
+    cabin:{base:[-1.64,.90],top:[-1.20,.29]},seats:[[.42,.06],[-.42,.06],[.42,-1.04],[-.42,-1.04]],doors:4,
     handling:{top:27,accel:15.4,grip:8.1,mass:1.1},palette:[0xae4930,0x429277,0xc7a652,0x586e9c,0x8a4d45,0xd8d2c4,0x2f3436]},
   hatch:{name:'Pulga',category:'dia a dia',length:3.95,width:1.78,sill:.49,belt:.92,roof:1.5,wheel:.36,wheelbase:2.45,
-    cabin:{base:[-1.72,.62],top:[-1.66,.05]},seats:[[-.38,.18],[.38,.18],[-.38,-.86],[.38,-.86]],doors:4,
+    cabin:{base:[-1.72,.62],top:[-1.66,.05]},seats:[[.38,.18],[-.38,.18],[.38,-.86],[-.38,-.86]],doors:4,
     handling:{top:24,accel:13.6,grip:8.6,mass:.85},palette:[0xe19552,0x6aa6b8,0xd8d2c4,0xb53a3a,0x8fb05a]},
   wagon:{name:'Perua',category:'dia a dia',length:4.9,width:1.92,sill:.5,belt:.94,roof:1.52,wheel:.41,wheelbase:3.0,
-    cabin:{base:[-2.25,.92],top:[-2.18,.31]},seats:[[-.42,.1],[.42,.1],[-.42,-1.0],[.42,-1.0]],doors:4,
+    cabin:{base:[-2.25,.92],top:[-2.18,.31]},seats:[[.42,.1],[-.42,.1],[.42,-1.0],[-.42,-1.0]],doors:4,
     handling:{top:26,accel:14,grip:8,mass:1.18},palette:[0x95877f,0x4e7c89,0x7d6a4f,0xc6b9a0],extras:['roofRack']},
   taxi:{name:'Táxi',category:'dia a dia',length:4.8,width:1.94,sill:.505,belt:.935,roof:1.49,wheel:.41,wheelbase:2.98,
-    cabin:{base:[-1.64,.90],top:[-1.20,.29]},seats:[[-.42,.06],[.42,.06],[-.42,-1.04],[.42,-1.04]],doors:4,
+    cabin:{base:[-1.64,.90],top:[-1.20,.29]},seats:[[.42,.06],[-.42,.06],[.42,-1.04],[-.42,-1.04]],doors:4,
     handling:{top:27,accel:15,grip:8.1,mass:1.1},palette:[0xe8c547],extras:['taxi']},
   pickup:{name:'Picape',category:'utilitário',length:5.3,width:2.0,sill:.66,belt:1.1,roof:1.86,wheel:.46,wheelbase:3.25,
-    cabin:{base:[-.62,1.02],top:[-.52,.48]},seats:[[-.44,-.02],[.44,-.02]],doors:2,
+    cabin:{base:[-.62,1.02],top:[-.52,.48]},seats:[[.44,-.02],[-.44,-.02]],doors:2,
     handling:{top:25,accel:13,grip:7.6,mass:1.45},palette:[0x6b7a5a,0x8a2f2a,0xd5cfc2,0x2f4f6f,0x3a3a3a],extras:['bed']},
   van:{name:'Furgão',category:'utilitário',length:5.15,width:2.0,sill:.55,belt:1.06,roof:2.0,wheel:.41,wheelbase:3.15,
-    cabin:{base:[.15,1.5],top:[.4,.95]},seats:[[-.45,.85],[.45,.85]],doors:2,
+    cabin:{base:[.15,1.5],top:[.4,.95]},seats:[[.45,.85],[-.45,.85]],doors:2,
     handling:{top:22,accel:11,grip:7,mass:1.6},palette:[0xe6e2d6,0x9fb7c5,0xc9b37a,0x6c7f63],extras:['box']},
   suv:{name:'Jipão',category:'luxo / utilitário',length:4.85,width:2.02,sill:.7,belt:1.13,roof:1.9,wheel:.48,wheelbase:2.95,
-    cabin:{base:[-1.98,.78],top:[-1.88,.26]},seats:[[-.45,.05],[.45,.05],[-.45,-1.0],[.45,-1.0]],doors:4,
+    cabin:{base:[-1.98,.78],top:[-1.88,.26]},seats:[[.45,.05],[-.45,.05],[.45,-1.0],[-.45,-1.0]],doors:4,
     handling:{top:28,accel:14.6,grip:7.8,mass:1.45},palette:[0x1f2a30,0xd9d6cf,0x5c3b2e,0x395b4a],extras:['roofRack','chrome']},
   sport:{name:'Faísca',category:'esportivo',length:4.45,width:1.98,sill:.4,belt:.76,roof:1.2,wheel:.38,wheelbase:2.7,
-    cabin:{base:[-1.05,.62],top:[-.55,.02]},seats:[[-.4,-.28],[.4,-.28]],doors:2,
+    cabin:{base:[-1.05,.62],top:[-.55,.02]},seats:[[.4,-.28],[-.4,-.28]],doors:2,
     handling:{top:40,accel:23,grip:9.8,mass:.95},palette:[0xd93b2b,0xf2c230,0x2f6fd6,0xf4f1ea,0x26292b],extras:['spoiler']},
   muscle:{name:'Trovão',category:'esportivo',length:4.95,width:2.0,sill:.46,belt:.88,roof:1.34,wheel:.43,wheelbase:2.95,
-    cabin:{base:[-1.3,.5],top:[-1.0,-.02]},seats:[[-.42,-.45],[.42,-.45]],doors:2,
+    cabin:{base:[-1.3,.5],top:[-1.0,-.02]},seats:[[.42,-.45],[-.42,-.45]],doors:2,
     handling:{top:36,accel:21,grip:7.4,mass:1.25},palette:[0x1d1f22,0x7d1f1f,0xd36a2a,0x2d5d3f],extras:['scoop','stripes']},
   luxury:{name:'Imperador',category:'luxo',length:5.35,width:2.02,sill:.5,belt:.98,roof:1.55,wheel:.43,wheelbase:3.25,
-    cabin:{base:[-1.95,.98],top:[-1.45,.36]},seats:[[-.44,.12],[.44,.12],[-.44,-1.08],[.44,-1.08]],doors:4,
+    cabin:{base:[-1.95,.98],top:[-1.45,.36]},seats:[[.44,.12],[-.44,.12],[.44,-1.08],[-.44,-1.08]],doors:4,
     handling:{top:33,accel:16,grip:8.6,mass:1.35},palette:[0x141618,0xe5e2da,0x3b3f45,0x4a2328],extras:['chrome']},
   convertible:{name:'Brisa',category:'luxo / esportivo',length:4.6,width:1.95,sill:.46,belt:.86,roof:1.3,wheel:.4,wheelbase:2.75,
-    cabin:{base:[-1.35,.7],top:[-1.35,.36]},seats:[[-.4,-.12],[.4,-.12],[-.4,-1.0],[.4,-1.0]],doors:2,open:true,
+    cabin:{base:[-1.35,.7],top:[-1.35,.36]},seats:[[.4,-.12],[-.4,-.12],[.4,-1.0],[-.4,-1.0]],doors:2,open:true,
     handling:{top:34,accel:19,grip:9,mass:1.05},palette:[0x8fd1e8,0xe9e3d0,0xb52a3c,0x1c3f6e],extras:['chrome']}
 };
 
@@ -76,7 +76,18 @@ export function buildCar(scene,model='sedan',color,police=false) {
   // Underbody, side skirts, body shell, bonnet and boot.
   add('box',0x252a2d,0,(R*.32+sill+.06)/2,0,W-.44,sill+.06-R*.32,L-.9);
   for(const side of [-1,1]) add('box',0x2b3033,side*(W/2-.07),sill-.06,0,.12,.22,Math.max(.4,WB-2*R-.12));
-  add('box',tint,0,(sill+belt)/2,0,W,belt-sill,L,true);
+  // Open passenger well and wheel arches; the seats extend below the window line.
+  add('box',0x393739,0,sill,0,W-.44,.075,L-.35);
+  for(const side of [-1,1]) {
+    for(const [start,end] of [[-half,-WB/2-R],[-WB/2+R,WB/2-R],[WB/2+R,half]]) {
+      if(end>start) add('box',tint,side*(W/2-.055),(sill+belt)/2,(start+end)/2,.11,belt-sill,end-start,true);
+    }
+    for(const axle of [-WB/2,WB/2]) {
+      const arch=Math.min(belt-.05,2*R+.03);
+      add('box',tint,side*(W/2-.055),(arch+belt)/2,axle,.11,belt-arch,2*R,true);
+    }
+  }
+  for(const end of [-1,1]) add('box',tint,0,(sill+belt)/2,end*(half-.09),W-.04,belt-sill,.18,true);
   const hoodLength=half-b1-.03;
   const hood=add('box',tint,0,belt+.005,(b1+half)/2,W-.04,.15,hoodLength,true);
   if(!extras.includes('bed') && !extras.includes('box') && half+b0>.25) add('box',tint,0,belt-.005,(b0-half)/2,W-.05,.14,half+b0-.02,true);
@@ -120,6 +131,7 @@ export function buildCar(scene,model='sedan',color,police=false) {
   const hip=Math.min(belt-.395,roof-.98);
   const backHigh=Math.min(.62,roof-belt-.02+ .3);
   for(const [x,z] of spec.seats) {
+    add('box',0x353330,x,hip+.18+backHigh,z-.3,.31,.16,.14);
     add('box',0x3a3733,x,hip+.12,z,.52,.12,.52);
     add('box',0x3a3733,x,hip+.12+backHigh/2,z-.3,.5,backHigh,.12);
   }
@@ -181,7 +193,7 @@ export function buildCar(scene,model='sedan',color,police=false) {
   // Driver's door swings open on entry.
   const door=new T.Group();
   const doorEnd=spec.doors===4?(spec.seats[0][1]+spec.seats[2][1])/2+.12:spec.seats[0][1]-.62;
-  door.position.set(-(W/2+.004),0,b1);
+  door.position.set(W/2+.004,0,b1);
   piece(door,'box',tint,0,(sill+belt)/2+.04,-(b1-doorEnd)/2,.036,belt-sill-.1,b1-doorEnd,true);
   combineParts(door,meshes(door),paintMat);
   body.add(door);
@@ -431,7 +443,7 @@ export function poseCar(car, dt, steer = 0) {
   const camber=bike?0:Math.atan2((right-left)*.5,(car.halfWidth??.97)*2)+sag;
   car.body.rotation.z+=(lean+camber-car.body.rotation.z)*(dt>0?Math.min(1,dt*(bike?7:13)):1);
   car.doorTime=Math.max(0,car.doorTime-dt);
-  car.door.rotation.y=Math.sin(Math.min(1,car.doorTime/.65)*Math.PI)*1.06;
+  car.door.rotation.y=(bike?1:-1)*Math.sin(Math.min(1,car.doorTime/.65)*Math.PI)*1.06;
   const radius=car.wheelRadius??.408;
   const tilt=bike?car.body.rotation.z:0;
   car.root.position.set(car.x,ground+(bike?Math.abs(Math.sin(tilt))*.06:0),car.z);

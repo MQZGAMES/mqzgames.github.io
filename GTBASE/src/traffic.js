@@ -311,7 +311,7 @@ export function driveTraffic(cars, active, people, solids, dt, zoneOwners, signa
   }
   for(const car of cars) {
     const driver=car.driver;
-    if(!driver || car.integrity<=0) {
+    if(!driver || car.burning || car.wrecked || car.integrity<=0) {
       if(car!==active.player && Math.hypot(car.vx,car.vz)>.06) {
         stepVehicle(car,dt,{throttle:0,steer:0,brake:true},solids,active.vehicles);
       } else if(car!==active.player) car.impact=Math.max(0,car.impact-dt*21);

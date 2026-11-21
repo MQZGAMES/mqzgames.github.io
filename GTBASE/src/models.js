@@ -89,17 +89,11 @@ export function character(scene, appearance) {
   const bare=look.shirt==='none';
   const top=bare?skin:look.shirtColor;
   add('cloth',look.legColor,0,.94,0,.44,.25,.29);
+  add('sphere',top,0,1.24,0,.275,.29,.174);
+  if(bare && look.feminine) add('sphere',look.shirtColor,0,1.34,.014,.277,.112,.172);
   if(look.shirt==='tank') {
-    add('cloth',top,0,1.21,0,.46,.5,.3);
-    add('cloth',skin,0,1.39,0,.5,.2,.31);
-    for(const side of [-1,1]) add('cloth',top,side*.12,1.41,0,.07,.2,.315);
-  } else {
-    add('cloth',top,0,1.22,0,.49,.49,.31);
-    add('cloth',top,0,1.39,0,.55,.215,.337);
-  }
-  if(bare) {
-    for(const side of [-1,1]) add('cloth',shade(skin,.9),side*.1,1.33,.142,.17,.12,.03);
-    add('cloth',shade(skin,.92),0,1.15,.145,.16,.18,.02);
+    add('sphere',skin,0,1.47,0,.105,.064,.115);
+    for(const side of [-1,1]) add('sphere',top,side*.174,1.435,0,.103,.066,.137);
   }
   if(look.shirt==='dress') {
     add('cloth',shade(top,1.25),0,1.47,.06,.3,.06,.2);
@@ -182,6 +176,7 @@ export function character(scene, appearance) {
     piece(shin,'cloth',shorts?skin:look.legColor,0,-.18,0,shorts?.15:.182,.38,shorts?.16:.198);
     if(look.shoes==='flipflops') {
       piece(shin,'cloth',skin,0,-.405,.06,.12,.08,.24);
+      for(const branch of [-1,1]) piece(shin,'cloth',look.shoeColor,branch*.033,-.366,.09,.023,.019,.1).rotation.y=-branch*.55;
       piece(shin,'cloth',look.shoeColor,0,-.455,.059,.15,.025,.29);
     } else {
       const shoe=look.shoes==='dress'?0x1d1612:look.shoeColor;

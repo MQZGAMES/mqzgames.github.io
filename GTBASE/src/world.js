@@ -290,6 +290,25 @@ export function createWorld(scene) {
       }
     }
   }
+  // Low-rise masonry homes open onto pedestrian alleys east of the perimeter road.
+  // The signed entrance spans the central alley, leaving the passage clear.
+  for(const side of [-1,1]) blockBox(63.6,1.85,side*1.7,.15,3.7,.15,0x705747);
+  box(63.6,3.48,0,.16,.64,3.65,0x705747);
+  facadeText('VILA DAS LAJES',63.51,3.48,0,-Math.PI/2,0x315453,3.55,.56);
+  box(73,-.055,0,22,.1,32,0x998d7d);
+  for(const [column,x] of [67.5,74.5,81].entries()) for(const [row,z] of [-12,-4,4,12].entries()){
+    const h=2.9+((column+row)%3)*.85;
+    const tint=[0xb57050,0xa28c75,0xad6548,0x998e82][(row+column)%4];
+    blockBox(x,h/2,z,4.8,h,5.5,tint);
+    box(x,h+.08,z,5,.16,5.7,0x847e77);
+    box(x-2.41,1.07,z-.8,.05,2.14,.88,0x584c40);
+    box(x-2.42,1.64,z+1.15,.055,.88,1.2,0x536265);
+    if((row+column)%2===0){
+      box(x-2.66,2.28,z-.8,.56,.09,1.36,0x7c8c87);
+      for(const dz of [-.42,0,.42]) box(x-2.46,1.64,z+1.15+dz,.04,.88,.04,0x293c40);
+    }
+    if(row%2===0) box(x,h+.55,z+1,1.3,.92,1.3,0x516578);
+  }
   for(let i=0;i<52;i++){
     const angle=i/52*Math.PI*2;
     const radius=118+random()*58;

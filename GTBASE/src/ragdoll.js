@@ -58,7 +58,7 @@ export function stepRagdoll(actor,dt,ground,blocked) {
     if(lift>=1) {actor.ragdoll=null;model.root.rotation.set(0,actor.angle,0);return false;}
   }
   model.root.rotation.set(r.tiltX,actor.angle,r.tiltZ);
-  model.root.position.set(actor.x,ground+r.y+Math.abs(Math.sin(r.tiltX))*.17,actor.z);
+  model.root.position.set(actor.x,ground+r.y+Math.max(0,-Math.cos(r.tiltX)*Math.cos(r.tiltZ))*1.88+Math.hypot(Math.sin(r.tiltX),Math.sin(r.tiltZ))*.31,actor.z);
   if(airborne || !settled) {
     const phase=r.t*13;
     model.body.position.set(0,0,0);

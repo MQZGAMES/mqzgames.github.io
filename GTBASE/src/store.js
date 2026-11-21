@@ -37,7 +37,7 @@ export function createStore(dialog,{balance,onClose}) {
         const name=document.createElement('span');
         name.textContent=item.label+(item.active?' · em uso':'');
         const price=document.createElement('b');
-        price.textContent=money(item.price);
+        price.textContent=item.price==null || item.disabled && catalogue.title==='Inventário'?'':money(item.price);
         button.append(name,price);
         if(item.detail) {
           const small=document.createElement('small');

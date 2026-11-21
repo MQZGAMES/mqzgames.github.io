@@ -19,7 +19,7 @@ function strokeAt(elapsed) {
  * Boxing guard and straight punch. hand 0 throws with the right arm, 1 with the left.
  * The rear foot drives, the hips and shoulders rotate into the punch and the guard hand stays at the chin.
  */
-export function poseFists(model,{aim=false,punch=0,pitch=0,hand=0}={}) {
+export function poseFists(model,{aim=false,punch=0,pitch=0,hand=0,walking=false}={}) {
   if(!aim && punch<=0) return;
   const lead=model.arms[hand], guard=model.arms[1-hand];
   const leadFore=model.forearms[hand], guardFore=model.forearms[1-hand];
@@ -35,10 +35,12 @@ export function poseFists(model,{aim=false,punch=0,pitch=0,hand=0}={}) {
   const [rightLeg,leftLeg]=model.legs, [rightShin,leftShin]=model.shins;
   const back=hand===0?rightLeg:leftLeg, front=hand===0?leftLeg:rightLeg;
   const backShin=hand===0?rightShin:leftShin, frontShin=hand===0?leftShin:rightShin;
-  front.rotation.set(-.32-extension*.08,0,0);
-  frontShin.rotation.set(.34,0,0);
-  back.rotation.set(.26+extension*.16,0,0);
-  backShin.rotation.set(.18-extension*.1,0,0);
+  if(!walking) {
+    front.rotation.set(-.32-extension*.08,0,0);
+    frontShin.rotation.set(.34,0,0);
+    back.rotation.set(.26+extension*.16,0,0);
+    backShin.rotation.set(.18-extension*.1,0,0);
+  }
   lead.rotation.set(mix(-.86,-1.66+finish,extension)+windup*.7,mirror*(.10-extension*.08),mirror*mix(.24,-.04,extension)-mirror*windup*.25);
   leadFore.rotation.set(mix(-1.62,-.04,extension)-windup*.2,0,mirror*(.1-extension*.1));
   guard.rotation.set(-.98+extension*.06,-mirror*.12,-mirror*.22);

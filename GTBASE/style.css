@@ -112,3 +112,9 @@ details p{line-height:1.45;margin:6px 0}
 #gang-menu button{min-height:44px;padding:0 12px;border:1px solid #f2f4d573;border-radius:9px;background:#102c28ee;font-weight:800;font-size:.75rem}
 #actions{grid-template-columns:repeat(4,minmax(45px,auto))}
 @media (orientation:landscape) and (max-height:495px){#actions{grid-template-columns:repeat(5,minmax(52px,auto))}#gang-menu{bottom:max(110px,calc(env(safe-area-inset-bottom) + 100px));grid-template-columns:repeat(2,auto)}}
+
+#open-map,#open-bag{display:block;pointer-events:auto;font-size:.75rem;padding:.35rem .55rem}
+#atlas{background:#192b2b;color:#fff;border:1px solid #879f97;border-radius:12px;max-width:min(85vw,68vh)}
+#atlas::backdrop{background:#000a}
+#atlas-map{width:100%;display:block;touch-action:manipulation}
+#atlas form{float:right}

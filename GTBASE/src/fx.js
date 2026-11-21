@@ -127,6 +127,10 @@ export function createFx(scene) {
         smoke.spawn(x,y+.6,z,rand(-.3,.3),rand(1.2,2),rand(-.3,.3),rand(1.8,2.8),.7,2.8,.45,color,0,.5);
       }
     },
+    blood(x,y,z){
+      color.setRGB(.48,.015,.025);
+      for(let i=0;i<7;i++) smoke.spawn(x,y,z,rand(-1.4,1.4),rand(.6,2),rand(-1.4,1.4),.34,.065,.025,.94,color,-9,.2);
+    },
     explosion(x,y,z){
       color.setRGB(1,.9,.6);
       glow.spawn(x,y+.6,z,0,0,0,.28,1.5,9,1,color);

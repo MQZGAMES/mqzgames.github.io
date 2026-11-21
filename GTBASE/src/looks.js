@@ -6,12 +6,12 @@ export const hairStyles={bald:'Careca',buzz:'Raspado',short:'Curto',afro:'Black 
 export const beardStyles={none:'Sem barba',stubble:'Por fazer',goatee:'Cavanhaque',mustache:'Bigode',full:'Barba cheia',chevron:'Bigode e cavanhaque'};
 export const metals={gold:0xd9b13b,silver:0xc9ccd1,diamond:0xdff5ff};
 
-export const clothColors=[0xf2efe6,0x1f2326,0x2a4f8f,0xb23a33,0x2f6b4c,0xe0b33d,0x7a4a8c,0xe07a3a,0x6f7f8c,0xc9a27a];
+export const clothColors=[0xf2efe6,0x1f2326,0x2a4f8f,0xb23a33,0x2f6b4c,0xe0b33d,0x7a4a8c,0xe07a3a,0x6f7f8c,0x278f9e];
 export const hairColors=[0x1d1714,0x3b2618,0x6a4325,0xc79a52,0x8e2f1f,0x9a9a96,0x2a4fa0];
 export const skinTones=[0xe5b088,0xc18e64,0xb38664,0x9a6a45,0x815438,0x5e3b27];
 
 /**
- * @typedef {{shirt:string,shirtColor:number,legs:string,legColor:number,shoes:string,shoeColor:number,
+ * @typedef {{feminine?:boolean,shirt:string,shirtColor:number,legs:string,legColor:number,shoes:string,shoeColor:number,
  *   hair:string,hairColor:number,beard:string,skin:number,glasses:boolean,chain:string,earrings:string,
  *   watch:string,ring:string,height:number,width:number,capColor:number}} Look
  */
@@ -36,6 +36,7 @@ export function randomLook(seed) {
   const pick=list=>list[Math.floor(next()*list.length)];
   const weighted=pairs=>{let roll=next()*pairs.reduce((a,[,w])=>a+w,0);for(const [value,w] of pairs){roll-=w;if(roll<=0) return value;}return pairs[0][0];};
   return {
+    feminine:seed%3===0,
     shirt:weighted([['tee',.46],['tank',.2],['dress',.2],['none',.08]]),
     shirtColor:pick(clothColors),
     legs:weighted([['pants',.62],['shorts',.38]]),
@@ -44,7 +45,7 @@ export function randomLook(seed) {
     shoeColor:pick([0xf0ece2,0x222222,0x8a2f2a,0x2d4f8a,0x5a4332]),
     hair:weighted([['short',.3],['buzz',.18],['bald',.1],['afro',.12],['long',.14],['mohawk',.05],['cap',.11]]),
     hairColor:pick(hairColors.slice(0,6)),
-    beard:weighted([['none',.45],['stubble',.18],['goatee',.1],['mustache',.1],['full',.12],['chevron',.05]]),
+    beard:seed%3===0?'none':weighted([['none',.45],['stubble',.18],['goatee',.1],['mustache',.1],['full',.12],['chevron',.05]]),
     skin:pick(skinTones),
     glasses:next()<.14,
     chain:weighted([['none',.82],['silver',.11],['gold',.07]]),
