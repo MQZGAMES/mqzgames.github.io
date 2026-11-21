@@ -30,7 +30,7 @@ export function createWorld(scene) {
   const sky = new T.Mesh(new T.SphereGeometry(330,32,16), new T.ShaderMaterial({
     side:T.BackSide, depthWrite:false,
     uniforms:{ sun:{value: new T.Vector3(-.66,.29,-.60).normalize()} },
-    vertexShader:'varying vec3 vDir; void main(){vDir=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    vertexShader:'varying vec3 vDir; void main(){vDir=position; vec4 p=projectionMatrix*vec4(mat3(viewMatrix)*position,1.);gl_Position=p.xyww;}',
     fragmentShader:`
       varying vec3 vDir;
       uniform vec3 sun;
@@ -56,7 +56,7 @@ export function createWorld(scene) {
         #include <colorspace_fragment>
       }`
   }));
-  scene.add(sky);
+  sky.frustumCulled=false;sky.renderOrder=-100;scene.add(sky);
   const solid=[], support=[], volume=[], buildings=[];
   const batches = {};
   /** @type {Record<string, T.BufferGeometry>} */
@@ -167,109 +167,19 @@ export function createWorld(scene) {
     return entry;
   }
   function home() {
-    const {x,z}=residence, plaster=0xd6be9c, wallHeight=3.33;
-    box(x,.17,z,12.1,.09,10.1,0x9d7862);
-    box(x-2.8,.218,z,5.3,.017,9.45,0xb29e79);
-    box(x+2.9,.218,z+2.2,5.45,.017,4.75,0xc0a582);
-    const wall=(dx,dz,w,d)=>blockBox(x+dx,.2+wallHeight/2,z+dz,w,wallHeight,d,plaster);
-    wall(-6,0,.22,10.22); wall(6,0,.22,10.22); wall(0,-5,12.10,.23);
-    wall(-3.195,5,5.61,.23); wall(3.415,5,5.17,.23);
-    wall(.45,-3.92,.15,2.1); wall(.45,-.69,.15,1.9);
-    wall(3.5,.05,4.8,.15); wall(-4.3,-.6,3.45,.15);
-    wall(-2.63,-3.92,.15,2.05);
-    blockBox(x+.22,2.99,z+5,1.24,1.08,.25,plaster);
-    blockBox(x+.45,2.99,z-2.23,.16,1.08,1.27,plaster);
-    const main=hingedDoor(x-.39,z+5,0,1.22,0x426559,.228,{id:'player-house-entry',buildingId:'player-home',unitId:'player-home:0',private:true});
-    const bedroom=hingedDoor(x+.45,z-1.64,Math.PI/2,1.22,0x80614c);
-    const bathroom=hingedDoor(x-2.63,z-1.69,Math.PI/2,1.17,0x89705a);
-    blockBox(x-2.63,2.99,z-2.27,.16,1.08,1.2,plaster);
-    const entry={x:x+.22,z:z+5,y:.228}, outside={x:x+.22,z:z+6.10,y:.16}, inside={x:x+.22,z:z+4.00,y:.228};
-    const homeDoors=[main.id,bedroom.id,bathroom.id];
-    const unit={id:'player-home:0',buildingId:'player-home',floor:.228,entry,outside,inside,resident:null,doorIds:homeDoors,stairs:[]};
-    buildings.push({id:'player-home',kind:'house',label:'CASA 38',entry,outside,inside,approach:outside,resident:null,clerk:null,doorIds:homeDoors,units:[unit]});
-    support.push({x,z,w:12.04,d:10.04,y:.228,buildingId:'player-home'});
-    volume.push({x,z,w:11.88,d:9.88,floor:.228,ceiling:3.55,buildingId:'player-home'});
-    box(x+.28,.11,z+5.9,2.55,.19,1.55,0x9b8b75);
-    const furniture=(dx,dz,w,h,d,color)=>blockBox(x+dx,.224+h/2,z+dz,w,h,d,color);
-    furniture(4.0,-3.63,1.46,.64,2.0,0x695044);
-    box(x+4,.72,z-3.57,1.39,.19,1.95,0x58786f);
-    box(x+4,.84,z-4.23,1.10,.13,.41,0xe3d6b9);
-    furniture(5.3,-1.20,.96,1.84,1.12,0x75563d);
-    furniture(-4.84,-3.75,1.4,.81,.62,0xd8cabb);
-    furniture(-4.47,-2.72,.43,.43,.64,0xdad7cf);
-    furniture(-5.27,-1.7,.66,.79,.50,0xdad7cf);
-    furniture(-5.18,1.3,.78,.88,2.45,0x766d58);
-    furniture(-4.95,3.77,1.04,1.76,.75,0xccc7ab);
-    box(x-5.18,1.12,z+1.29,.8,.12,2.45,0xddddc2);
-    box(x-5.2,1.19,z+1.44,.52,.025,.60,0x7b9090);
-    furniture(4.76,2.82,.91,.53,2.55,0x58776c);
-    box(x+5.16,.88,z+2.82,.20,.67,2.56,0x43655b);
-    furniture(2.78,2.80,1.15,.40,.68,0x875d3f);
-    furniture(-.36,2.98,1.23,.75,1.14,0x8a643e);
-    box(x+2.76,.245,z+2.77,2.12,.02,2.0,0xa98568);
-    box(x+5.88,1.53,z+2.85,.11,1.16,2.13,0xaf9272);
-    box(x+6.13,1.53,z+2.85,.10,1.02,1.99,0x527171);
-    box(x+6.20,1.53,z+2.85,.08,1.04,.075,0xe0c19e);
-    box(x+6.20,1.54,z+2.85,.08,.075,2.07,0xe0c19e);
-    box(x+6.18,1.01,z+2.85,.23,.10,2.21,0xb59b7e);
-    box(x-3.18,1.57,z+5.16,1.78,1.02,.14,0x617a77);
-    box(x-3.18,1.55,z+5.25,.08,1.06,.10,0xe0c19e);
-    box(x-3.18,1.59,z+5.25,1.83,.07,.10,0xe0c19e);
-    box(x-3.18,1.03,z+5.24,1.95,.11,.24,0xb69879);
-    for(const tx of [-3.6,2.62]) {
-      box(x+tx,3.45,z+1.6,.35,.11,.35,0xf8ddad);
-    }
-    box(x-3.73,.27,z+5.63,2.18,.09,1.23,0x839065);
-    box(x+3.76,.255,z+5.90,2.15,.09,1.58,0x7e8a60);
-    piece(houseRoof,'box',0xceba9d,x,3.63,z,12.34,.16,10.33).castShadow=false;
-    solid.push({x,z,w:12.34,d:10.33,y0:3.55,h:3.71,buildingId:'player-home'});
-    for(let side of [-1,1]) {
-      const panel=piece(houseRoof,'box',0x92523c,x+side*3.08,4.21,z,6.56,.17,10.78);
-      panel.rotation.z=-side*.205; panel.castShadow=false;
-      for(let tile=-2;tile<=2;tile++) {
-        const seam=piece(houseRoof,'box',0xa26046,x+side*3.08,4.31,z+tile*1.84,6.54,.064,.07);
-        seam.rotation.z=panel.rotation.z;seam.castShadow=false;
-      }
-      const gable=new T.Shape();
-      gable.moveTo(-6.10,3.67);gable.lineTo(6.10,3.67);gable.lineTo(0,4.80);gable.closePath();
-      const end=new T.Mesh(new T.ShapeGeometry(gable),new T.MeshStandardMaterial({color:0xc0a886,side:T.DoubleSide}));
-      end.position.set(x,0,z+side*5.04);
-      houseRoof.add(end);
-    }
-    piece(houseRoof,'box',0x874933,x,4.92,z,.28,.121,10.84).castShadow=false;
-    facadeText('CASA 38',x+2.65,2.27,z+5.125,0,0x4a4832,1.65,.34);
-    tree(x-9.5,z-5,true);
-    box(x+8.8,.19,z-4,4.2,.08,7.6,0x738457);
+    const {x,z}=residence;
+    blockBox(x,2.08,z,12,3.84,10,0xc9aa87);
+    box(x,4.10,z,12.5,.22,10.48,0x975e48,true);
+    box(x,1.28,z+5.04,1.18,2.23,.10,0x695546);
+    for(const u of [-3.6,3.6]) box(x+u,2.03,z+5.05,1.86,1.21,.12,0x536c72);
   }
-
   function policeStation() {
     const y=station.z;
     box(2,.169,y,19,.045,22,0x696b65);
     const blue=0x879799;
-    const lobbyEntry={x:-3.62,z:y,y:.234}, lobbyOutside={x:-2.46,z:y,y:.191}, lobbyInside={x:-4.78,z:y,y:.234};
-    support.push({x:-7.18,z:y,w:7.35,d:19.56,y:.234,buildingId:'station'});
-    volume.push({x:-7.17,z:y,w:7.12,d:19.4,floor:.234,ceiling:3.75,buildingId:'station'});
-    box(-7.4,.195,y,6.9,.078,19.5,0xb7afa0);
-    blockBox(-10.78,1.97,y,.30,3.53,19.80,blue);
-    for(const end of [-9.77,9.77]) blockBox(-7.1,1.97,y+end,7.6,3.53,.29,blue);
-    for(const end of [-5.51,5.51]) blockBox(-3.62,1.97,y+end,.28,3.53,8.59,blue);
-    blockBox(-3.62,3.095,y,.29,1.32,2.46,blue);
-    box(-7.2,3.84,y,7.64,.24,20.08,0x528092);
-    box(-7.2,4.00,y,7.58,.12,20.03,0x456976);
-    const lobby1=hingedDoor(-3.62,y+1.22,Math.PI/2,1.20,0x517486,.22,{buildingId:'station'});
-    const lobby2=hingedDoor(-3.62,y-1.21,-Math.PI/2,1.22,0x517486,.22,{buildingId:'station'});
-    buildings.push({id:'station',kind:'station',label:'POLÍCIA · VILA BRASA',entry:lobbyEntry,outside:lobbyOutside,
-      inside:lobbyInside,approach:lobbyOutside,resident:null,clerk:null,doorIds:[lobby1.id,lobby2.id],units:[]});
-    facadeText('RECEPÇÃO',-3.44,2.63,y,Math.PI/2,0x234653,2.16,.35);
-    for(const offset of [-5.5,5.5]) {
-      blockBox(-9.36,.74,y+offset,1.35,1.04,2.10,0x656963);
-      box(-9.30,1.28,y+offset,1.47,.13,2.20,0xada893);
-      box(-9.42,1.51,y+offset,.44,.44,.62,0x293b42);
-      box(-10.60,1.74,y+offset,.07,1.16,2.8,0xc1c4b0);
-      box(-7.60,3.05,y+offset,1.18,.08,.26,0xffe8b6);
-    }
-    blockBox(-6.82,.70,y-2.1,2.86,1.01,.62,0x6b8585);
-    box(-6.82,1.24,y-2.1,2.99,.12,.77,0xaeaaa0);
+    blockBox(-7.18,2.03,y,7.35,3.68,19.56,blue);
+    box(-7.18,3.98,y,7.62,.23,19.80,0x528092);
+    box(-3.46,1.35,y,.12,2.32,1.7,0x435664);
     box(-2.5,3.33,y,7.1,.25,19.5,0x526c77,true);
     blockBox(-1.5,1.42,y-9.72,5.4,2.54,.35,0x7d9090);
     blockBox(-1.5,1.42,y+9.72,5.4,2.54,.35,0x7d9090);
@@ -292,16 +202,16 @@ export function createWorld(scene) {
   for (const x of roads) {
     for (const z of blocks) {
       for(let k=-10;k<=10;k+=4) box(x,.014,z+k,.12,.015,1.82,0xd7a666);
-      for(const k of [-14.4,14.4]){
-        for(let stripe=-2;stripe<=2;stripe+=.85) box(x+stripe,.015,z+k,.45,.016,1.44,0xc8bfb1);
+      for(const k of [-12.6,12.6]){
+        for(let stripe=-4.5;stripe<=4.5;stripe+=.90) box(x+stripe,.015,z+k,.45,.016,1.44,0xc8bfb1);
       }
     }
   }
   for (const z of roads) {
     for (const x of blocks) {
       for(let k=-10;k<=10;k+=4) box(x+k,.014,z,1.82,.015,.12,0xd7a666);
-      for(const k of [-14.4,14.4]){
-        for(let stripe=-2;stripe<=2;stripe+=.85) box(x+k,.015,z+stripe,1.44,.016,.45,0xc8bfb1);
+      for(const k of [-12.6,12.6]){
+        for(let stripe=-4.5;stripe<=4.5;stripe+=.90) box(x+k,.015,z+stripe,1.44,.016,.45,0xc8bfb1);
       }
     }
   }
@@ -351,8 +261,8 @@ export function createWorld(scene) {
             box(x+side*6.8+edge,.18,plazaZ, .022,.012,2.50,0xb9b09c);
           }
         }
-        tree(x+12.55,z-12.05,random()>.37);
-        tree(x-11.5,z+12.15,random()>.42);
+
+
       }
       for(const side of [-1,1]){
         const lx=x+side*12.85, lz=z-side*9.85;
@@ -380,46 +290,9 @@ export function createWorld(scene) {
     const x=Math.sin(angle)*radius, z=Math.cos(angle)*radius;
     draw('hill',x,-1,z,12+random()*33,3+random()*22,10+random()*20,shade,false,angle);
     const height=4+random()*16;
-    box(x*.76,height*.5-1,z*.76,3+random()*9,height,4+random()*8,pick([0x9b8d82,0x888e8d,0x9a8b82]),false);
+    box(x,height*.5-1,z,3+random()*9,height,4+random()*8,pick([0x9b8d82,0x888e8d,0x9a8b82]),false);
   }
-  const cables=[];
-  for(const x of [-24.93,24.93,62.93]) {
-    for(const z of [-52,-26,1,27,51]) {
-      draw('pole',x,3.42,z,.095,6.81,.095,0x756157,true);
-      solid.push({x,z,w:.21,d:.21,y0:.16,h:6.82});
-      box(x,6.39,z,.92,.11,.095,0x645c55,false);
-      box(x-.38,6.49,z,.12,.16,.10,0xaaa094,false);
-      box(x+.38,6.49,z,.12,.16,.10,0xaaa094,false);
-    }
-    for(const [a,b] of [[-52,-26],[-26,1],[1,27],[27,51]]) for(const offset of [-.39,.39]) {
-      for(let index=0;index<10;index++) {
-        const t=index/10,next=(index+1)/10;
-        cables.push(x+offset,6.53-.57*Math.sin(Math.PI*t),a+(b-a)*t,
-          x+offset,6.53-.57*Math.sin(Math.PI*next),a+(b-a)*next);
-      }
-    }
-  }
-  const overhead=new T.BufferGeometry();
-  overhead.setAttribute('position',new T.Float32BufferAttribute(cables,3));
-  scene.add(new T.LineSegments(overhead,new T.LineBasicMaterial({color:0x5b534c,transparent:true,opacity:.77})));
-  const material = new T.MeshStandardMaterial({roughness:.88});
-  material.onBeforeCompile=shader=>{
-    shader.vertexShader='varying vec3 vDistrictSurface;\n'+shader.vertexShader.replace('#include <worldpos_vertex>',`
-      #include <worldpos_vertex>
-      vec4 districtPoint = vec4( transformed, 1.0 );
-      #ifdef USE_INSTANCING
-        districtPoint = instanceMatrix * districtPoint;
-      #endif
-      vDistrictSurface = (modelMatrix * districtPoint).xyz;
-    `);
-    shader.fragmentShader='varying vec3 vDistrictSurface;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
-      #include <color_fragment>
-      vec3 surfaceCell = floor(vDistrictSurface * 35.0);
-      float speckle = fract(sin(dot(surfaceCell,vec3(17.41,47.13,98.51)))*21418.65)-.5;
-      float patina = sin(vDistrictSurface.y * 1.39 + vDistrictSurface.x * .98) * sin(vDistrictSurface.z * 1.81 + vDistrictSurface.y * 1.39);
-      diffuseColor.rgb *= 1.0 + .11 * speckle + .036 * patina;
-    `);
-  };
+  const material=new T.MeshStandardMaterial({roughness:.88});
   for (const {shape,shadow,items} of Object.values(batches)) {
     const instance = new T.InstancedMesh(geometries[shape],material,items.length);
     items.forEach(({matrix,color},index)=>{

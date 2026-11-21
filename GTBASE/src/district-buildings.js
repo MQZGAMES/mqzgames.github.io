@@ -48,6 +48,19 @@ export function addDistrictBuilding(api,spec) {
   const glazingWidth=Math.min(w*.25,3.72);
   const displayWindows=shop?[frontPosition-w*.248,frontPosition+w*.248]:[];
   const doors=[];
+  if(!shop) {
+    const height=stories*rise;
+    part(0,0,floorTop+height/2,w,height,d,color);
+    foot(0,0,floorTop+height+.10,w+.36,.20,d+.36,spec.upperColor,true);
+    foot(0,front+.055,1.35,1.22,2.24,.11,wood);
+    for(let level=0;level<stories;level++) {
+      for(const u of [-w*.31,w*.31]) {
+        foot(u,front+.06,floorFor(level)+1.88,1.74,1.25,.13,0x526970);
+        foot(u,front+.12,floorFor(level)+1.22,1.93,.10,.20,concrete);
+      }
+    }
+    return {id,kind,label,units:[],doorIds:[],clerk:null};
+  }
   const main=addDoor(frontPosition-frontDoorWidth/2,front,floorTop,frontDoorWidth,shop?0x41636a:0x685041,
     {private:!upper&&!shop,unitId:upper||shop?null:id+':0',normallyOpen:spec.open===true});
   doors.push(main.id);

@@ -4,7 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { groundHeight } from './contact.js';
 
 const box = new T.BoxGeometry();
-const cloth = new RoundedBoxGeometry(1,1,1,1,.135);
+const cloth = new RoundedBoxGeometry(1,1,1,2,.29);
 const sphere = new T.SphereGeometry(1, 10, 7);
 const cylinder = new T.CylinderGeometry(1, 1, 1, 12);
 const materials = new Map();
@@ -262,7 +262,7 @@ export function coupe(scene, color, police = false) {
   smoke.visible=false;
   root.add(smoke);
   scene.add(root);
-  return {root,body,wheels,lamps,hood,smoke,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
+  return {root,body,cabin,wheels,lamps,hood,smoke,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
     steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,smokeTime:0,kind:'car',rider:null,door,doorTime:0,wheelSpin:0,handlebar:null};
 }
 

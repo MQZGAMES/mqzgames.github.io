@@ -11,8 +11,14 @@ export function footNavigator(solids) {
     const adjacent=[here>=cells?here-cells:-1,here<cells*(cells-1)?here+cells:-1,here%cells?here-1:-1,here%cells<cells-1?here+1:-1];
     return adjacent.filter(next=>next>=0 && free[next] && clear((node.x+nodes[next].x)*.5,(node.z+nodes[next].z)*.5,.38,solids));
   });
-  const directLine=(origin,target)=>[.18,.35,.53,.72,.89,1].every(f=>
-    clear(origin.x+(target.x-origin.x)*f,origin.z+(target.z-origin.z)*f,.29,solids));
+  const directLine=(origin,target)=>{
+    const steps=Math.max(1,Math.ceil(distance(origin,target)/.42));
+    for(let i=1;i<=steps;i++) {
+      const f=i/steps;
+      if(!clear(origin.x+(target.x-origin.x)*f,origin.z+(target.z-origin.z)*f,.31,solids)) return false;
+    }
+    return true;
+  };
   const nearest=target=>{
     let result=-1, best=Infinity;
     for(let i=0;i<nodes.length;i++) if(free[i]) {

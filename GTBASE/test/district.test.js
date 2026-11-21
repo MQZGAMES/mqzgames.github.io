@@ -20,13 +20,16 @@ function buildDistrict() {
 }
 
 const world=buildDistrict();
-const ray=(a,b,t)=>a+(b-a)*t;
-
-test('every district lot has a doorway and an interior floor, and each store has room for a clerk',()=>{
-  assert.ok(world.buildings.length>=14);
+test('every shop has a doorway and an interior floor, and each store has room for a clerk',()=>{
+  assert.ok(world.buildings.filter(b=>b.clerk).length>=6);
   const doors=new Set(world.doors.map(door=>door.id));
   assert.equal(doors.size,world.doors.length);
   for(const building of world.buildings) {
+    if(!building.clerk) {
+      assert.deepEqual(building.doorIds,[]);
+      assert.deepEqual(building.units,[]);
+      continue;
+    }
     assert.ok(building.doorIds.length>=1,building.id);
     assert.ok(building.doorIds.every(id=>doors.has(id)),building.id);
     const inside=building.inside;
@@ -40,55 +43,10 @@ test('every district lot has a doorway and an interior floor, and each store has
   }
 });
 
-test('private doors protect houses, open for the actual owner and have breach association',()=>{
-  const building=world.buildings.find(b=>b.kind==='house' && b.id!=='player-home');
-  assert.ok(building);
-  const entrance=world.doors.find(door=>door.id===building.doorIds[0]);
-  assert.equal(entrance.private,true);
-  world.resetDoors();
-  if(entrance.normallyOpen) entrance.normallyOpen=false;
-  world.resetDoors();
-  const stranger={...building.outside,floorY:building.outside.y,health:100};
-  world.updateDoors(.5,[stranger]);
-  assert.equal(entrance.opened,false);
-  assert.ok(world.closedDoorSolids().some(part=>part.doorId===entrance.id));
-  const owned=building.units[0];
-  const owner={...stranger,buildingId:building.id,unitId:owned.id};
-  world.updateDoors(.5,[owner]);
-  assert.equal(entrance.opened,true);
-  world.resetDoors();
-  assert.ok(world.breachDoor(entrance.id));
-  assert.ok(!world.closedDoorSolids().some(part=>part.doorId===entrance.id));
-  world.updateDoors(.5,[stranger]);
-  assert.equal(entrance.opened,true);
-  world.resetDoors();
-});
 
-test('stairs reach each raised apartment floor and every owner spawn is clear',()=>{
-  let stairsExercised=0;
-  for(const building of world.buildings.filter(item=>item.kind==='apartments')) {
-    assert.ok(building.units.length>=2);
-    for(const unit of building.units) {
-      const {x,y,z}=unit.resident;
-      assert.ok(clear(x,z,.26,world.walkSolids(x,z,y)),unit.id);
-      const area=world.interiorAt(x,z,y);
-      assert.ok(area?.ceiling-area?.floor>3.30,unit.id);
-      if(!unit.stairs.length) continue;
-      let height=unit.stairs[0].y;
-      let previous=unit.stairs[0];
-      for(const target of unit.stairs.slice(1)) {
-        const count=Math.max(1,Math.ceil(Math.hypot(target.x-previous.x,target.z-previous.z)/.09));
-        for(let index=1;index<=count;index++) {
-          const t=index/count;
-          const x=ray(previous.x,target.x,t),z=ray(previous.z,target.z,t);
-          assert.ok(clear(x,z,.25,world.walkSolids(x,z,height)),unit.id+' at '+x+','+z+' y='+height);
-          height=world.floorAt(x,z,height);
-        }
-        previous=target;
-      }
-      assert.ok(Math.abs(unit.floor-height)<.07,unit.id+' reached '+height);
-      stairsExercised++;
-    }
+test('home and station reject entry through their walls',()=>{
+  for(const [x,z] of [[38,-38],[-7,38]]) {
+    assert.equal(clear(x,z,.29,world.walkSolids(x,z,0)),false);
+    assert.equal(Boolean(world.interiorAt(x,z,0)),false);
   }
-  assert.ok(stairsExercised>=4);
 });

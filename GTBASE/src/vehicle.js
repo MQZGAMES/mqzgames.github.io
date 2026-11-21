@@ -9,6 +9,7 @@ const profile=kind=>profiles[kind]??profiles.car;
 /** @typedef {{x:number,z:number,angle:number,vx:number,vz:number,speed:number,integrity:number,steer:number,impact:number,kind?:string}} VehicleBody */
 
 export function resetVehicle(car, pose) {
+  if(car.cabin) car.cabin.visible=true;
   Object.assign(car,pose,{vx:0,vz:0,speed:0,integrity:100,steer:0,impact:0});
 }
 

@@ -1,7 +1,7 @@
 export const halfWorld = 65;
 export const roads = [-57, -19, 19, 57];
 export const blocks = [-38, 0, 38];
-export const spawn = { x: 14, z: -7 };
+export const spawn = { x: 11.7, z: 3.2 };
 export const weaponShop = { x: 12.05, z: -5.45 };
 export const station = {x:2,z:38};
 export const residence = {x:38,z:-38};
