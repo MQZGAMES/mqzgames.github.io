@@ -1,10 +1,10 @@
-# GTBASE ? Vila Brasa
+# GTBASE · Vila Brasa
 
 ## Briefing revisado
 
-Manter a explora??o livre com controles por toque, teclado e Xbox. Reservar interiores aos com?rcios. Construir resid?ncias e delegacia com fachadas s?lidas, janelas alinhadas e portas decorativas. Distribuir mobili?rio e ?rvores fora da circula??o. Posicionar travessias nos acessos aos cruzamentos e manter o horizonte est?vel ao girar a c?mera.
+Manter a exploração livre com controles por toque, teclado e Xbox. Reservar interiores aos comércios. Construir residências e delegacia com fachadas sólidas, janelas alinhadas e portas decorativas. Distribuir mobiliário e árvores fora da circulação. Posicionar travessias nos acessos aos cruzamentos e manter o horizonte estável ao girar a câmera.
 
-Pedestres circulam pela rua e visitam lojas. Em bloqueios, procuram passagem lateral. Ao mirar e apertar o gatilho sem balas, o jogador indica o alvo ? gangue. Pilotos podem cair quando atingidos e tiros atrav?s da cabine podem atingir o motorista. O progresso pode ser salvo na porta da casa do jogador.
+Pedestres circulam pela rua e visitam lojas. Em bloqueios, procuram passagem lateral. Ao mirar e apertar o gatilho sem balas, o jogador indica o alvo à gangue. Pilotos podem cair quando atingidos e tiros através da cabine podem atingir o motorista. O progresso pode ser salvo na porta da casa do jogador.
 
 ## Desenvolvimento
 

@@ -235,6 +235,7 @@ export function createWorld(scene) {
         for(let i=-8;i<=8;i+=4){
           box(x, .177, z+i, 3.1,.033,3.2,0xc9b494);
         }
+        blockBox(x,1.04,z-9.89,4.42,1.77,.18,0x8d7963);
         facadeText('PRAÇA DA BRASA',x,1.6,z-10,Math.PI);
       } else {
         for(const side of [-1,1]) {
