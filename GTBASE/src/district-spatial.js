@@ -58,6 +58,19 @@ export function districtSpatial(solid,support,volume,doors,groundHeight) {
     return room;
   }
 
+  /** True when a camera point sits inside a wall or roof (props and floors are ignored). */
+  function viewBlocked(x,y,z,radius=.3,doorways=false) {
+    const hits=box=>y>=(box.y0??0)-radius && y<=box.h+radius &&
+      Math.abs(x-box.x)<box.w*.5+radius && Math.abs(z-box.z)<box.d*.5+radius;
+    for(const box of solidsNear(x,z)) {
+      if(box.off || box.prop || box.walkSurface || box.stair) continue;
+      if(hits(box)) return true;
+    }
+    // From the street an open doorway still counts as wall, so the camera never slips into a shop.
+    if(doorways) for(const box of entriesNear(x,z)) if(hits(box)) return true;
+    return false;
+  }
+
   function closedDoorSolids() {
     return doors.map(door=>door.closedSolid).filter(doorClosed);
   }
@@ -105,5 +118,5 @@ export function districtSpatial(solid,support,volume,doors,groundHeight) {
     }
   }
 
-  return {vehicleSolids,floorAt,walkSolids,interiorAt,closedDoorSolids,breachDoor,updateDoors,resetDoors};
+  return {vehicleSolids,floorAt,walkSolids,interiorAt,closedDoorSolids,breachDoor,updateDoors,resetDoors,viewBlocked};
 }

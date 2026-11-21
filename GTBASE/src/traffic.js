@@ -54,9 +54,9 @@ function withIntersections(loop) {
 export const trafficRoutes=loops.map(loop=>makeRoute(withIntersections(loop)));
 const startingCorners=[1,3,1,1,5,5,7,10];
 
-export function resetDriver(car, routeIndex) {
+export function resetDriver(car, routeIndex, shift=0) {
   const route=trafficRoutes[routeIndex];
-  const next=(startingCorners[routeIndex]*7)%route.length;
+  const next=(startingCorners[routeIndex]*7+shift)%route.length;
   const at=route[next], prev=route[(next+route.length-1)%route.length];
   const t=.49;
   resetVehicle(car,{x:prev.x+(at.x-prev.x)*t,z:prev.z+(at.z-prev.z)*t,angle:at.angle});

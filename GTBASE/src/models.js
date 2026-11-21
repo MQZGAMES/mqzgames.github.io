@@ -63,6 +63,7 @@ function contact(group, x, z) {
 
 export function person(scene, shirt, trousers, skin, hero = false) {
   const root = new T.Group();
+  root.rotation.order='YXZ';
   const shadow=contact(root,.41,.38);
   const body = new T.Group();
   root.add(body);
@@ -199,14 +200,17 @@ export function coupe(scene, color, police = false) {
   const body = new T.Group();
   root.add(body);
   const add = (shape, shade, x,y,z,w,h,d, shiny = false) => piece(body,shape,shade,x,y,z,w,h,d,shiny);
-  add('box',0x252a2d,0,.44,0,1.86,.40,4.14);
+  // Four-door saloon, about 4.3 m by 1.9 m: underbody sits inboard so the tyres show under the body line.
+  add('box',0x252a2d,0,.40,0,1.50,.32,3.70);
+  for(const side of [-1,1]) add('box',0x2b3033,side*.90,.44,0,.12,.22,1.66);
+  for(const end of [-1,1]) add('box',0x2b3033,0,.42,end*1.96,1.86,.30,.42);
   add('box',color,0,.72,0,1.94,.43,4.24,true);
-  const hood=add('box',color,0,.94,1.23,1.90,.15,1.55,true);
-  add('box',color,0,.93,-1.51,1.89,.14,1.10,true);
+  const hood=add('box',color,0,.94,1.40,1.90,.15,1.20,true);
+  add('box',color,0,.93,-1.78,1.89,.14,.72,true);
   const windows = new T.BufferGeometry();
   const vertices = [
-    -.87,.92,-1.14, .87,.92,-1.14, .87,.92,.66, -.87,.92,.66,
-    -.71,1.49,-.78, .71,1.49,-.78, .71,1.49,.16, -.71,1.49,.16
+    -.87,.92,-1.45, .87,.92,-1.45, .87,.92,.80, -.87,.92,.80,
+    -.71,1.49,-1.06, .71,1.49,-1.06, .71,1.49,.26, -.71,1.49,.26
   ];
   windows.setAttribute('position', new T.Float32BufferAttribute(vertices,3));
   windows.setIndex([0,4,5,0,5,1, 1,5,6,1,6,2, 2,6,7,2,7,3, 3,7,4,3,4,0, 4,7,6,4,6,5]);
@@ -215,12 +219,12 @@ export function coupe(scene, color, police = false) {
   cabin.castShadow = true;
   body.add(cabin);
   const door=new T.Group();
-  door.position.set(-.974,0,.67);
-  piece(door,'box',color,0,.75,-.57,.036,.38,1.18,true);
-  piece(door,'box',0xccc1a7,-.024,.881,-.89,.04,.04,.15,true);
+  door.position.set(-.974,0,.79);
+  piece(door,'box',color,0,.75,-.65,.036,.38,1.28,true);
+  piece(door,'box',0xccc1a7,-.024,.881,-.37,.04,.04,.15,true);
   combineParts(door,meshes(door),paintMat);
   body.add(door);
-  add('box',color,0,1.495,-.31,1.43,.075,.96,true);
+  add('box',color,0,1.495,-.40,1.43,.075,1.30,true);
   add('box',0x333539,0,.69,2.126,.86,.13,.05);
   add('box',0xc8bfac,0,.54,2.13,1.92,.12,.045,true);
   add('box',0xc8bfac,0,.53,-2.13,1.93,.12,.05,true);
@@ -229,14 +233,16 @@ export function coupe(scene, color, police = false) {
   for (const side of [-1,1]) {
     add('box',0xffe3a4,side*.68,.77,2.132,.43,.17,.055,true);
     add('box',0xa82e22,side*.65,.77,-2.132,.48,.17,.055,true);
-    add('box',0x2c393c,side*.953,1.02,.30,.22,.11,.21);
-    add('box',0xc7bba4,side*.98,.89,-.5,.035,.040,.26,true);
+    add('box',0x2c393c,side*1.0,1.0,.74,.10,.09,.16);
+    // Door seams and handles: front and rear doors on both sides.
+    for(const seam of [.79,-.52,-1.47]) add('box',0x1c2022,side*.975,.72,seam,.012,.42,.025);
+    for(const handle of [.42,-.74]) add('box',0xc7bba4,side*.98,.89,handle,.035,.040,.22,true);
     for (const z of [-1.31,1.33]) {
       const axle = new T.Group();
-      axle.position.set(side*.945,.39,z);
+      axle.position.set(side*.83,.39,z);
       root.add(axle);
-      piece(axle,'cylinder',0x252628,0,0,0,.408,.26,.408).rotation.z = Math.PI / 2;
-      piece(axle,'cylinder',0xa8a7a4,side*.138,0,0,.217,.02,.217,true).rotation.z = Math.PI / 2;
+      piece(axle,'cylinder',0x252628,0,0,0,.408,.24,.408).rotation.z = Math.PI / 2;
+      piece(axle,'cylinder',0xa8a7a4,side*.115,0,0,.217,.02,.217,true).rotation.z = Math.PI / 2;
       wheels.push(axle);
     }
   }
@@ -347,4 +353,26 @@ export function poseCar(car, dt, steer = 0) {
       cloud.scale.setScalar(.12+phase*.32);
     });
   }
+}
+
+/** Collapse: knees give way, then the body topples forwards (dir 1) or backwards (dir -1). */
+export function poseFall(person,time,dir) {
+  const buckle=Math.min(1,time/.22);
+  const topple=Math.min(1,Math.max(0,(time-.12)/.5));
+  const eased=topple*topple*(3-2*topple);
+  const bounce=time>.62?Math.sin(Math.min(1,(time-.62)/.25)*Math.PI)*.06*(1-Math.min(1,(time-.62)/.25)):0;
+  const tilt=dir*(eased*1.5-bounce);
+  person.body.position.set(0,-.16*buckle*(1-eased),0);
+  person.body.rotation.set(dir*.2*buckle,0,0);
+  person.legs[0].rotation.set(-.55*buckle*(1-eased)+.1*eased,0,-.12*eased);
+  person.legs[1].rotation.set(-.35*buckle*(1-eased)-.15*eased,0,.14*eased);
+  person.shins[0].rotation.set(1.05*buckle*(1-eased)+.2*eased,0,0);
+  person.shins[1].rotation.set(.75*buckle*(1-eased)+.35*eased,0,0);
+  const flail=Math.sin(Math.min(1,time/.5)*Math.PI);
+  person.arms[0].rotation.set(-dir*(.6*flail+.4*eased),0,-.35-.6*eased);
+  person.arms[1].rotation.set(-dir*(.9*flail+.3*eased),0,.35+.7*eased);
+  person.forearms[0].rotation.set(-.5*flail-.2,0,0);
+  person.forearms[1].rotation.set(-.3*flail-.3,0,0);
+  person.pistol.visible=false;
+  return tilt;
 }

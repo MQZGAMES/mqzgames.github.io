@@ -53,6 +53,7 @@ function scanRay(origin,direction,solids,targets,limit,ground) {
   let nearest=limit,hit=null,solid=null,surface=null,face=-1,rotation=0;
   const result={face:-1};
   for(const box of solids) {
+    if(box.off) continue;
     const bounds=box.bounds??[box.x-box.w*.5,box.y0??box.base??0,box.z-box.d*.5,box.x+box.w*.5,box.h,box.z+box.d*.5];
     const distance=rayBox(origin,direction,bounds,nearest,result);
     if(distance>=nearest) continue;

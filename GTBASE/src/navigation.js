@@ -19,14 +19,23 @@ export function footNavigator(solids) {
     }
     return true;
   };
+  // Only nodes around the target are candidates; checking every node against every wall stalled frames.
   const nearest=target=>{
-    let result=-1, best=Infinity;
-    for(let i=0;i<nodes.length;i++) if(free[i]) {
-      const dx=nodes[i].x-target.x,dz=nodes[i].z-target.z, d=dx*dx+dz*dz;
-      if(d<best && directLine(target,nodes[i])) {result=i;best=d;}
+    const ci=Math.round((target.x+edge)/spacing), cj=Math.round((target.z+edge)/spacing);
+    const candidates=[];
+    for(let j=Math.max(0,cj-4);j<=Math.min(cells-1,cj+4);j++) {
+      for(let i=Math.max(0,ci-4);i<=Math.min(cells-1,ci+4);i++) {
+        const index=j*cells+i;
+        if(!free[index]) continue;
+        const dx=nodes[index].x-target.x,dz=nodes[index].z-target.z;
+        candidates.push({index,d:dx*dx+dz*dz});
+      }
     }
-    return result;
+    candidates.sort((a,b)=>a.d-b.d);
+    for(const {index} of candidates.slice(0,12)) if(directLine(target,nodes[index])) return index;
+    return candidates[0]?.index??-1;
   };
+  let budget=0, stamp=-1;
   const path=(origin,target)=>{
     const start=nearest(origin), finish=nearest(target);
     if(start<0 || finish<0 || start===finish) return [];
@@ -52,9 +61,15 @@ export function footNavigator(solids) {
     const gap=Math.hypot(dx,dz);
     if(gap<.16) return 0;
     const direct=gap<7 && directLine(actor,target);
+    const now=Math.floor(performance.now()/16);
+    if(now!==stamp) {stamp=now;budget=3;}
     if(!direct && actor.repath<=0) {
-      actor.route=path(actor,target);
-      actor.repath=1.25;
+      // A small per-frame budget spreads route searches over several frames.
+      if(budget>0) {
+        budget--;
+        actor.route=path(actor,target);
+        actor.repath=1.1+Math.random()*.4;
+      } else actor.repath=.05;
     }
     while(actor.route?.length && (distance(actor,actor.route[0])<.7 ||
       actor.route.length>1 && distance(actor,actor.route[1])<4 && directLine(actor,actor.route[1]))) actor.route.shift();

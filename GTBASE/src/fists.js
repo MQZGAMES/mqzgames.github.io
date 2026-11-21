@@ -15,21 +15,33 @@ function strokeAt(elapsed) {
   return .89*(1-ease((elapsed-.182)/(FIST_DURATION-.182)));
 }
 
-export function poseFists(model,{aim=false,punch=0,pitch=0}={}) {
+/**
+ * Boxing guard and straight punch. hand 0 throws with the right arm, 1 with the left.
+ * The rear foot drives, the hips and shoulders rotate into the punch and the guard hand stays at the chin.
+ */
+export function poseFists(model,{aim=false,punch=0,pitch=0,hand=0}={}) {
   if(!aim && punch<=0) return;
-  const [right,left]=model.arms;
-  const [rightFore, leftFore]=model.forearms;
+  const lead=model.arms[hand], guard=model.arms[1-hand];
+  const leadFore=model.forearms[hand], guardFore=model.forearms[1-hand];
+  const mirror=hand===0?1:-1;
   const stroke=punch>0?strokeAt(clamp(FIST_DURATION-punch,0,FIST_DURATION)):0;
   const extension=Math.max(0,stroke), windup=Math.max(0,-stroke);
   const finish=clamp(pitch,-.64,.53)*.62;
-  const torso=.068+extension*.17-windup*.09;
-  model.body.rotation.set(torso,.09+extension*.35-windup*.48,-.019-extension*.041);
-  model.body.position.y+=lift(1-Math.cos(torso))-.028;
-  model.body.position.z+=lift(-Math.sin(torso))+extension*.07;
-  right.rotation.set(mix(-.79,-1.82+finish,extension)+windup*.88,
-    .10-extension*.065,mix(.20,-.047,extension)-windup*.31);
-  rightFore.rotation.set(mix(-1.16,-.047,extension)-windup*.31,.04,.11-extension*.10);
-  left.rotation.set(-.91-extension*.18+finish*.28,-.11,-.18-extension*.02);
-  leftFore.rotation.set(-1.04+extension*.17,-.04,-.075);
+  const torso=.07+extension*.2-windup*.08;
+  model.body.rotation.set(torso,mirror*(.12+extension*.46-windup*.52),mirror*(-.02-extension*.05));
+  model.body.position.y+=lift(1-Math.cos(torso))-.04-extension*.03;
+  model.body.position.z+=lift(-Math.sin(torso))+extension*.12;
+  // Staggered stance: the punching side's leg stays back and pushes.
+  const [rightLeg,leftLeg]=model.legs, [rightShin,leftShin]=model.shins;
+  const back=hand===0?rightLeg:leftLeg, front=hand===0?leftLeg:rightLeg;
+  const backShin=hand===0?rightShin:leftShin, frontShin=hand===0?leftShin:rightShin;
+  front.rotation.set(-.32-extension*.08,0,0);
+  frontShin.rotation.set(.34,0,0);
+  back.rotation.set(.26+extension*.16,0,0);
+  backShin.rotation.set(.18-extension*.1,0,0);
+  lead.rotation.set(mix(-.86,-1.66+finish,extension)+windup*.7,mirror*(.10-extension*.08),mirror*mix(.24,-.04,extension)-mirror*windup*.25);
+  leadFore.rotation.set(mix(-1.62,-.04,extension)-windup*.2,0,mirror*(.1-extension*.1));
+  guard.rotation.set(-.98+extension*.06,-mirror*.12,-mirror*.22);
+  guardFore.rotation.set(-1.78,0,-mirror*.08);
   model.pistol.visible=false;
 }

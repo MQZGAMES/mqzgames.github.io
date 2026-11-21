@@ -4,6 +4,7 @@ import { piece } from './models.js';
 import { groundHeight } from './contact.js';
 import { addDistrictBuilding } from './district-buildings.js';
 import { districtSpatial } from './district-spatial.js';
+import { createProps } from './props.js';
 
 let seed = 473021;
 function random() {
@@ -11,7 +12,6 @@ function random() {
   return seed / 4294967296;
 }
 const pick = values => values[Math.floor(random()*values.length)];
-const iron = 0x393e3c;
 
 export function createWorld(scene) {
   seed=473021;
@@ -62,40 +62,29 @@ export function createWorld(scene) {
   /** @type {Record<string, T.BufferGeometry>} */
   const geometries = {
     box:new T.BoxGeometry(), foliage:new T.IcosahedronGeometry(1,1),
-    pole:new T.CylinderGeometry(.8,1,1,8), hill:new T.SphereGeometry(1,14,9)
+    pole:new T.CylinderGeometry(.8,1,1,8), hill:new T.SphereGeometry(1,14,9), prism:prismGeometry()
   };
   const transform = new T.Object3D();
-  function draw(shape,x,y,z,w,h,d,color,shadow,rotation=0) {
+  function draw(shape,x,y,z,w,h,d,color,shadow,rotation=0,tilt=0) {
     const region=x===0&&z===0?'center':Math.round(x/31)+','+Math.round(z/31);
     const key = shape+':'+Boolean(shadow)+':'+region;
     const batch = batches[key] ??= {shape,shadow:Boolean(shadow),items:[]};
     transform.position.set(x,y,z);
     transform.scale.set(w,h,d);
-    transform.rotation.y = rotation;
+    transform.rotation.set(tilt,rotation,0,'YXZ');
     transform.updateMatrix();
     batch.items.push({matrix:transform.matrix.clone(),color:new T.Color(color)});
   }
-  function box(x,y,z,w,h,d,color,shadow=false,rotation=0) {
-    draw('box',x,y,z,w,h,d,color,shadow,rotation);
+  function box(x,y,z,w,h,d,color,shadow=false,rotation=0,tilt=0,shape='box') {
+    draw(shape,x,y,z,w,h,d,color,shadow,rotation,tilt);
   }
   function blockBox(x,y,z,w,h,d,color) {
     box(x,y,z,w,h,d,color,true);
     solid.push({x,z,w,d,y0:y-h/2,h:y+h/2});
   }
+  const props=createProps(scene,solid,groundHeight);
   function tree(x,z,palm=false) {
-    const height = 3.25 + random()*2.65;
-    draw('pole',x,height*.48,z,palm?.16:.22,height,.22,0x7a6050,true);
-    if (palm) {
-      for (let i=0; i<7; i++) {
-        const angle = i * Math.PI * 2 / 7;
-        draw('foliage',x+Math.sin(angle)*.86,height,z+Math.cos(angle)*.86,.42,.24,1.58,pick([0x345f4a,0x4a7553,0x6c8456]),true,angle);
-      }
-    } else {
-      for (let i=0; i<4; i++) {
-        draw('foliage',x+(random()-.5)*2,height+(random()-.3)*1.6,z+(random()-.5)*2,1+random()*.7,1.15,1.35,pick([0x466b50,0x668551,0x87a45c]),true,random()*6);
-      }
-    }
-    solid.push({x,z,w:.45,d:.45,h:.9*height});
+    props.add(palm?'palm':'tree',x,z,random()*6.28,.82+random()*.36,{w:.45,d:.45,h:3.6});
   }
   function facadeText(label,x,y,z,rotation,color=0x1b3a37,width=4.2,height=.65) {
     const canvas = document.createElement('canvas');
@@ -167,11 +156,23 @@ export function createWorld(scene) {
     return entry;
   }
   function home() {
-    const {x,z}=residence;
-    blockBox(x,2.08,z,12,3.84,10,0xc9aa87);
-    box(x,4.10,z,12.5,.22,10.48,0x975e48,true);
-    box(x,1.28,z+5.04,1.18,2.23,.10,0x695546);
-    for(const u of [-3.6,3.6]) box(x+u,2.03,z+5.05,1.86,1.21,.12,0x536c72);
+    const {x,z}=residence, wall=0xc9aa87;
+    blockBox(x,2.08,z,12,3.84,10,wall);
+    box(x,.39,z+5.03,12.04,.46,.08,0x81766f);
+    box(x,4.0,z,12.06,1.7,9.98,wall,true,0,0,'prism');
+    box(x,4.06,z,12.0,1.84,10.7,0x8f5440,true,0,0,'prism');
+    box(x+3.6,4.9,z-2.2,.55,1.9,.55,0x8f7a6a,true);
+    box(x,1.38,z+5.05,1.42,2.42,.10,0x4f4741);
+    box(x,1.31,z+5.09,1.10,2.20,.06,0x695546);
+    box(x,.18,z+5.35,1.7,.14,.62,0x81766f);
+    box(x,2.85,z+5.45,1.9,.12,.86,0xd9bea0,true);
+    for(const u of [-3.6,3.6]) {
+      box(x+u,2.03,z+5.04,2.08,1.43,.10,0x4f4741);
+      box(x+u,2.03,z+5.07,1.86,1.21,.06,0x4d6a72);
+      box(x+u,1.22,z+5.16,2.2,.09,.2,0xd9bea0);
+      for(const side of [-1,1]) box(x+u+side*1.17,2.03,z+5.07,.34,1.27,.05,0x5f7b6a);
+    }
+    facadeText('CASA 38',x+1.6,1.62,z+5.13,0,0x4a4832,.92,.22);
   }
   function policeStation() {
     const y=station.z;
@@ -188,8 +189,10 @@ export function createWorld(scene) {
     facadeText('POLÍCIA · VILA BRASA',1.26,2.87,y,Math.PI/2,0x294454,7.2,.63);
     for(const dz of [-8.2,-3.95,.3,4.55,8.80]) box(8.15,.208,y+dz,5.3,.016,.10,0xddd3ae);
     for(const dz of [-6.1,-1.85,2.4]) box(5.5,.208,y+dz,.10,.016,3.25,0xddd3ae);
-    box(-3.75,1.67,y-6.8,.16,1.18,2.05,0x37565d);
-    box(-3.75,1.67,y+6.8,.16,1.18,2.05,0x37565d);
+    for(const dz of [-6.8,-3.4,3.4,6.8]) {
+      box(-3.46,1.87,y+dz,.08,1.40,2.25,0x4f4741);
+      box(-3.43,1.87,y+dz,.05,1.18,2.05,0x37565d);
+    }
     box(-3.52,.21,y+3.1,.64,.08,2.45,0x625c51);
   }
 
@@ -267,20 +270,12 @@ export function createWorld(scene) {
       }
       for(const side of [-1,1]){
         const lx=x+side*12.85, lz=z-side*9.85;
-        draw('pole',lx,2.39,lz,.083,4.5,.083,iron,true);
-        solid.push({x:lx,z:lz,w:.17,d:.17,h:4.65});
-        box(lx+side*.35,4.52,lz,.79,.075,.075,iron,true);
-        box(lx+side*.73,4.48,lz,.32,.12,.19,0xe3b985,true);
-        box(x+side*9,.56,z-side*12.5,1.52,.075,.46,0x815846,true);
-        box(x+side*9,.78,z-side*12.66,1.52,.23,.075,0x956954,true);
-        solid.push({x:x+side*9,z:z-side*12.50,w:1.52,d:.50,h:.89});
-        for(const leg of [-.54,.54]) box(x+side*9+leg,.35,z-side*12.5,.06,.37,.37,iron,true);
+        props.add('lamp',lx,lz,side>0?0:Math.PI,1,{w:.17,d:.17,h:4.5});
+        props.add('bench',x+side*9,z-side*12.5,side>0?0:Math.PI,1,{w:1.52,d:.50,h:.73});
         const bx=x+side*10.1;
-        draw('pole',bx,.52,z-side*12.55,.24,.69,.24,0x355049,true);
-        draw('pole',bx,.88,z-side*12.55,.267,.10,.267,0x263d37,true);
-        solid.push({x:bx,z:z-side*12.55,w:.5,d:.5,h:.94});
-        box(bx+.72,.38,z-side*12.58,.09,.39,.09,0x6c6757,true);
-        box(bx+.72,.58,z-side*12.58,.13,.08,.13,0xd8a478,true);
+        props.add('bin',bx,z-side*12.55,0,1,{w:.5,d:.5,h:.78});
+        props.add('bollard',bx+.72,z-side*12.58,0,1,{w:.14,d:.14,h:.46});
+        tree(x+side*12.3,z+side*12.3);
       }
     }
   }
@@ -293,6 +288,7 @@ export function createWorld(scene) {
     const height=4+random()*16;
     box(x,height*.5-1,z,3+random()*9,height,4+random()*8,pick([0x9b8d82,0x888e8d,0x9a8b82]),false);
   }
+  props.finalize();
   const material=new T.MeshStandardMaterial({roughness:.88});
   for (const {shape,shadow,items} of Object.values(batches)) {
     const instance = new T.InstancedMesh(geometries[shape],material,items.length);
@@ -315,6 +311,16 @@ export function createWorld(scene) {
   beacon.position.y=2.8;
   marker.add(beacon);
   scene.add(marker);
-  return {solid,marker,beacon,sun,sky,houseRoof,bed,doors,buildings,
+  return {solid,marker,beacon,sun,sky,houseRoof,bed,doors,buildings,props,
     ...districtSpatial(solid,support,volume,doors,groundHeight)};
+}
+
+function prismGeometry() {
+  // Unit gable: base from y=0 (v from -.5 to .5) up to the ridge at y=1, extruded along x.
+  const a=[-.5,0,-.5], b=[-.5,0,.5], c=[-.5,1,0], d=[.5,0,-.5], e=[.5,0,.5], f=[.5,1,0];
+  const faces=[a,b,c, d,f,e, a,f,d, a,c,f, b,f,c, b,e,f, a,e,b, a,d,e];
+  const geometry=new T.BufferGeometry();
+  geometry.setAttribute('position',new T.Float32BufferAttribute(faces.flat(),3));
+  geometry.computeVertexNormals();
+  return geometry;
 }

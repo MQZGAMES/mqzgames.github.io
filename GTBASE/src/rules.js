@@ -12,6 +12,7 @@ export const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 export function clear(x, z, radius, solids) {
   return Math.abs(x) + radius < halfWorld && Math.abs(z) + radius < halfWorld &&
     solids.every(box => {
+      if (box.off) return true;
       const dx = x - clamp(x, box.x - box.w / 2, box.x + box.w / 2);
       const dz = z - clamp(z, box.z - box.d / 2, box.z + box.d / 2);
       return dx * dx + dz * dz >= radius * radius;
