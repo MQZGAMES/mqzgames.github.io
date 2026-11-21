@@ -4,7 +4,9 @@ import { animatePerson, coupe, motorcycle, person, poseCar, ridePerson } from '.
 import { blocks, roads, spawn, weaponShop, station, residence, bed, clamp, clear, distance, move, turn } from './rules.js';
 import { resetVehicle, stepVehicle } from './vehicle.js';
 import { driveTraffic, positionAvailable, resetDriver } from './traffic.js';
-import { findPunch, reachable, traceShot } from './combat.js';
+import { aimShot, canSee, findPunch, reachable, traceImpact, traceShot } from './combat.js';
+import { createShotEffects } from './shot-effects.js';
+import { FIST_CONTACT_DELAY, FIST_DURATION, poseFists } from './fists.js';
 import { controls, element } from './input.js';
 import { createAudio } from './audio.js';
 import { shotDamage, impactDamage, wantedUnits } from './injury.js';
@@ -38,9 +40,15 @@ function start() {
   const scene=new T.Scene();
   const camera=new T.PerspectiveCamera(57,1,.12,370);
   const world=createWorld(scene);
-  const cameraWalls=world.solid.filter(part=>part.h>1.70);
-  const aiWalk=footNavigator(world.solid);
-  const player={...spawn,angle:0,health:100,lift:0,vx:0,vz:0,pushX:0,pushZ:0,trip:0,model:person(scene,0x246959,0x363844,0xba7750,true)};
+  const vehicleSolids=world.vehicleSolids;
+  const aiWalk=footNavigator(world.vehicleSolids);
+  const effects=createShotEffects(scene);
+  const actorGround=actor=>actor.floorY??world.floorAt(actor.x,actor.z,0);
+  const walkGeometry=actor=>world.walkSolids(actor.x,actor.z,actorGround(actor));
+  const scanSolids=()=>[...world.solid,...world.closedDoorSolids()];
+  const syncFloor=actor=>{actor.floorY=world.floorAt(actor.x,actor.z,actorGround(actor));};
+  const collisionFleet=actor=>actorGround(actor)>1.25?[]:cars;
+  const player={...spawn,buildingId:'player-home',unitId:'player-home:0',floorY:0,angle:0,health:100,lift:0,vx:0,vz:0,pushX:0,pushZ:0,trip:0,model:person(scene,0x246959,0x363844,0xba7750,true)};
   const carSpawns=[
     {x:15.75,z:-1.8,angle:Math.PI,color:0xae4930},
     {x:-22.8,z:4,angle:0,color:0x429277},
@@ -70,43 +78,60 @@ function start() {
     const f=(i%3+1)/4;
     const home={x:a.x+(b.x-a.x)*f,z:a.z+(b.z-a.z)*f,next:(point+1)%4};
     const colors=[0xb1674c,0xdab661,0x6e839f,0x867094,0xc6bd9d];
-    return actorAt(home,'civilian',person(scene,colors[i%5],i%2?0x4f5554:0x54434b,[0xc18e64,0x855232,0xe5b088][i%3]),path);
+    return actorAt({...home,id:'street:'+i},'civilian',person(scene,colors[i%5],i%2?0x4f5554:0x54434b,[0xc18e64,0x855232,0xe5b088][i%3]),path);
   });
+  const residents=world.buildings.flatMap(building=>building.units.filter(unit=>building.id!=='player-home' && unit.resident).map((unit,i)=>{
+    const point=unit.resident;
+    const palettes=[0x9b6651,0x5e777e,0xa29362,0x917393];
+    return actorAt({...point,next:0,id:'resident:'+unit.id,buildingId:building.id,unitId:unit.id},
+      'resident',person(scene,palettes[(i+building.id.length)%palettes.length],0x4a4545,0xb38b65),[]);
+  }));
+  const clerks=world.buildings.filter(building=>building.clerk).map((building,i)=>actorAt({
+    ...building.clerk,next:0,id:'clerk:'+building.id,buildingId:building.id
+  },'clerk',person(scene,i%2?0x466b66:0x755b52,0x494746,0xc3936f),[]));
+  const residentsById=new Map(world.buildings.flatMap(building=>building.units.map(unit=>[unit.id,{building,unit}])));
+  const publicShops=world.buildings.filter(building=>building.clerk);
   const police=Array.from({length:3},(_,i)=>{
     const z=station.z-6.1+i*4.25;
-    const home={x:-7.1,z:station.z+[-.23,-4.4,3.94][i],next:0};
+    const home={x:-7.1,z:station.z+[-.23,-4.4,3.94][i],next:0,id:'officer:'+i,buildingId:'station'};
     const officer=actorAt(home,'police',person(scene,0x364c65,0x263343,0xb98059),[]);
     const berth={x:8.2,z,angle:Math.PI/2};
     const car=coupe(scene,0x375675,true);
-    return {officer,berth,car,mode:'ready',stall:0,stop:null,intent:0,combat:null,departing:false,retaliation:null};
+    return {officer,berth,car,mode:'ready',stall:0,stop:null,intent:0,combat:null,departing:false,retaliation:null,maneuver:null};
   });
   const cars=[...civilianCars,...police.map(unit=>unit.car)];
   const vehicleStarts=new Map();
   const ejected=Array.from({length:5},(_,i)=>{
-    const npc=actorAt({x:0,z:0,next:0},'civilian',person(scene,0x82735a,0x424241,[0xb38664,0x815438][i%2]),[]);
+    const npc=actorAt({x:0,z:0,next:0,id:'driver:'+i},'civilian',person(scene,0x82735a,0x424241,[0xb38664,0x815438][i%2]),[]);
     npc.seated=true;
     npc.model.root.visible=false;
     return npc;
   });
-  const pedestrians=[...civilians,...police.map(unit=>unit.officer),...ejected];
+  const pedestrians=[...civilians,...residents,...clerks,...police.map(unit=>unit.officer),...ejected];
+  let activePeople=pedestrians;
+  const actorIndex=new Map(pedestrians.map(npc=>[npc.id,npc]));
   const decals=new T.CircleGeometry(1,14);
   const bloodMat=new T.MeshBasicMaterial({color:0x641c22,transparent:true,opacity:.81,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1});
   const pickupGeo=new T.BoxGeometry(.27,.115,.38);
   const pickupColors={cash:new T.MeshStandardMaterial({color:0x779a64}),ammo:new T.MeshStandardMaterial({color:0xdba95a}),weapon:new T.MeshStandardMaterial({color:0x495358})};
   const pickups=[];
   function actorAt(home,role,model,path) {
-    return {home,role,model,path,...home,pace:1.15+(Math.abs(home.z)%4)*.11,angle:0,fear:0,health:100,
+    return {home,baseRole:role,role,model,path,...home,pace:1.15+(Math.abs(home.z)%4)*.11,
+      angle:home.angle??0,floorY:home.y??0,scheduleClock:9+Math.abs(home.z*1.17)%29, itinerary:[], rearWait:0,fear:0,health:100,
       down:0,stagger:0,seated:false,robbed:false,surrender:0,drop:null,attack:0,injuryCooldown:0,
-      repath:0,route:[],exitAnim:0,exitSide:1,exitAge:0,pushX:0,pushZ:0};
+      repath:0,route:[],pursuitRoute:[],pursuitKey:'',exitAnim:0,exitSide:1,exitAge:0,pushX:0,pushZ:0};
   }
   function resetActor(npc) {
     if(npc.drop) {scene.remove(npc.drop);npc.drop=null;}
-    Object.assign(npc,npc.home,{role:npc.role==='police'?'police':'civilian',health:100,fear:0,down:0,
-      seated:false,stagger:0,attack:0,surrender:0,robbed:false,injuryCooldown:0,exitAnim:0,repath:0,route:[],pushX:0,pushZ:0});
+    Object.assign(npc,npc.home,{role:npc.baseRole,health:100,fear:0,down:0,angle:npc.home.angle??0,
+      floorY:npc.home.y??0,scheduleClock:9+Math.abs(npc.home.z*1.17)%29,itinerary:[],rearWait:0,
+      seated:false,stagger:0,attack:0,surrender:0,robbed:false,injuryCooldown:0,exitAnim:0,repath:0,route:[],
+      pursuitRoute:[],pursuitKey:'',pushX:0,pushZ:0});
     npc.model.root.rotation.set(0,npc.angle,0);
     npc.model.shadow.visible=true;
     npc.model.root.visible=true;
-    npc.model.root.position.set(npc.x,groundHeight(npc.x,npc.z),npc.z);
+    syncFloor(npc);
+    npc.model.root.position.set(npc.x,actorGround(npc),npc.z);
   }
   const audio=createAudio();
   if (stored('sound')==='off') audio.toggle();
@@ -115,26 +140,11 @@ function start() {
   const desiredCamera=new T.Vector3();
   const projection=new T.Vector3();
   const shotFrom=new T.Vector3();
-  const shotTo=new T.Vector3();
   const shotDirection=new T.Vector3();
   const enemyFrom=new T.Vector3(), enemyTo=new T.Vector3(), enemyDirection=new T.Vector3();
-  let hostileFlash=0;
-  const tracerData=new T.Float32BufferAttribute(new Float32Array(6),3);
-  const tracerGeometry=new T.BufferGeometry();
-  tracerGeometry.setAttribute('position',tracerData);
-  const tracer=new T.Line(tracerGeometry,new T.LineBasicMaterial({color:0xffdb83,transparent:true,opacity:.9}));
-  tracer.frustumCulled=false;
-  tracer.visible=false;
-  scene.add(tracer);
-  const hostileData=new T.Float32BufferAttribute(new Float32Array(6),3);
-  const hostileGeo=new T.BufferGeometry();
-  hostileGeo.setAttribute('position',hostileData);
-  const hostileTracer=new T.Line(hostileGeo,new T.LineBasicMaterial({color:0xffa472,transparent:true,opacity:.87}));
-  hostileTracer.frustumCulled=false;
-  hostileTracer.visible=false;
-  scene.add(hostileTracer);
 
   let playing=false, started=false, driving=null;
+  let sightOfPolice=false,witnessClock=0,lastKnown=null;
   let heat=0, alertCooldown=0, shotCooldown=0, impactCooldown=0, stepCooldown=0, flash=0;
   let yaw=0, pitch=.23, time=0, introTime=0, uiTime=0, cameraIdle=0, cameraFresh=true;
   let padMode='keyboard', cash=startingCash, armed=false, equipped=false, ammo=0, previousAim=false;
@@ -162,7 +172,7 @@ function start() {
     mapCtx.fillRect(0,mapPos(coordinate)-10,256,20);
   }
   mapCtx.fillStyle='#345048';
-  for(const building of world.solid) mapCtx.fillRect(mapPos(building.x-building.w/2),mapPos(building.z-building.d/2),building.w*1.92,building.d*1.92);
+  for(const building of world.vehicleSolids) mapCtx.fillRect(mapPos(building.x-building.w/2),mapPos(building.z-building.d/2),building.w*1.92,building.d*1.92);
   mapCtx.fillStyle='#6a7859';
   mapCtx.fillRect(mapPos(-10),mapPos(28),38,38);
 
@@ -215,11 +225,13 @@ function start() {
     rogueClock=27;
     cash=startingCash; armed=false; equipped=false; ammo=0; previousAim=false;
     heat=shotCooldown=flash=impactCooldown=stepCooldown=noticeTime=0;
+    witnessClock=0;sightOfPolice=false;lastKnown=null;effects.reset();world.resetDoors();
     punchMotion=hitTime=impactTime=jumpVelocity=deathClock=0;
     punchPending=false;punchAt=0;cameraInside=false;
     yaw=.32; pitch=.22;
     cameraIdle=0;
-    Object.assign(player,spawn,{angle:0,lift:0,health:100,vx:0,vz:0,pushX:0,pushZ:0,trip:0});
+    Object.assign(player,spawn,{angle:0,lift:0,health:100,vx:0,vz:0,pushX:0,pushZ:0,trip:0,floorY:0});
+    syncFloor(player);
     player.model.root.position.set(player.x,0,player.z);
     player.model.root.rotation.set(0,0,0);
     player.model.root.visible=true;
@@ -242,7 +254,10 @@ function start() {
     for(const npc of ejected) {npc.seated=true;npc.model.root.visible=false;}
     for(const item of pickups) scene.remove(item.mesh);
     pickups.length=0;
-    world.marker.position.set(weaponShop.x,0,weaponShop.z);
+    startPatrol(police[0]);
+    const arms=publicShops.find(building=>building.kind==='armory')?.entry??weaponShop;
+    world.marker.position.set(arms.x,.02,arms.z);
+    world.marker.scale.setScalar(.44);
     world.marker.visible=true;
     uiTime=0;
   }
@@ -289,19 +304,44 @@ function start() {
     closeShop();
   }
 
-  function wanted(pressure) {
-    heat=Math.min(56,Math.max(heat+(heat>0?pressure*.58:0),pressure));
+  function policeSees(actor) {
+    const target={...actor,ground:cars.includes(actor)?actor.root.position.y:actorGround(actor),angle:actor.angle};
+    const solids=scanSolids();
+    return police.some(unit=>{
+      const {officer,car,mode}=unit;
+      if(officer.health<=0) return false;
+      if(officer.seated && ['driving','patrol','returning'].includes(mode)) {
+        return canSee({...car,ground:car.root.position.y},target,solids,{range:32,fov:Math.PI*.62,eye:1.48,aim:1.13});
+      }
+      return canSee({...officer,ground:actorGround(officer)},target,solids,{range:26,fov:Math.PI*.78,eye:1.66,aim:1.20});
+    });
   }
 
-  const atShop=()=>!driving && distance(player,weaponShop)<2.85;
-  const atBed=()=>!driving && insideHouse(player) && distance(player,bed)<2 &&
-    reachable([player.x,1.05,player.z],[bed.x,1.05,bed.z],world.solid);
+  function wanted(pressure,actor=driving??player,observed=policeSees(actor)) {
+    if(!observed) return false;
+    const oldRank=wantedUnits(heat);
+    heat=Math.min(64,Math.max(heat+(heat>0?pressure*.52:0),pressure));
+    sightOfPolice=true;
+    witnessClock=.24;
+    lastKnown={x:actor.x,z:actor.z,y:actorGround(actor),health:100,seated:false,angle:actor.angle};
+    if(!oldRank) announce('Crime visto pela polícia.');
+    return true;
+  }
+
+  const atShop=()=>!driving && actorGround(player)<1 && publicShops.some(building=>building.kind==='armory' &&
+    world.interiorAt(player.x,player.z,actorGround(player))?.buildingId===building.id &&
+    distance(player,building.clerk)<3.0);
+  const atBed=()=>!driving && actorGround(player)<1 && insideHouse(player) && distance(player,bed)<2 &&
+    reachable([player.x,actorGround(player)+.96,player.z],[bed.x,actorGround(player)+.96,bed.z],scanSolids());
   const vehicleList=()=>cars;
-  const living=actor=>actor.health>0 && !actor.seated;
-  const insideHouse=({x,z})=>Math.abs(x-residence.x)<6.08 && Math.abs(z-residence.z)<5.12;
+  const living=actor=>actor && actor.health>0 && !actor.seated;
+  const insideHouse=actor=>world.interiorAt(actor.x,actor.z,actorGround(actor))?.buildingId==='player-home';
   const insideStation=({x,z})=>x>-10.72&&x< -3.50&&Math.abs(z-station.z)<9.68;
-  const vehicleName=car=>car.kind==='bike'?'Moto':'Cup?';
+  const vehicleName=car=>car.kind==='bike'?'Moto':'Cupê';
+  const lockedDoor=()=>!driving&&world.doors.find(door=>door.private && !door.breached && !door.opened &&
+    Math.abs(door.base-actorGround(player))<.85 && distance(door,player)<1.62);
   function carAt() {
+    if(actorGround(player)>1.02) return null;
     let nearest=null, limit=3.0;
     for(const car of civilianCars) {
       const gap=distance(player,car);
@@ -318,9 +358,10 @@ function start() {
     const side=driving.kind==='bike'?1.02:1.64;
     const spots=[side,-side,side+.53,-side-.53].map(offset=>[x+Math.cos(angle)*offset,z-Math.sin(angle)*offset]);
     spots.push([x-Math.sin(angle)*2.75,z-Math.cos(angle)*2.75],[x+Math.sin(angle)*2.77,z+Math.cos(angle)*2.77]);
-    const slot=spots.find(([px,pz])=>actorClear({x:px,z:pz},px,pz,world.solid,cars,pedestrians,.36));
+    const slot=spots.find(([px,pz])=>actorClear({x:px,z:pz},px,pz,world.walkSolids(px,pz,0),cars,activePeople,.36));
     if(!slot && !forced) {announce('Sem espaço para abrir a porta.');return;}
     [player.x,player.z]=slot??[spawn.x,spawn.z];
+    player.floorY=0;syncFloor(player);
     player.angle=angle;
     Object.assign(player,{vx:0,vz:0,pushX:0,pushZ:0});
     driving.abandoned=0;
@@ -333,7 +374,8 @@ function start() {
 
   function wakeUp() {
     exitVehicle(true);
-    Object.assign(player,{x:residence.x+2.5,z:residence.z-2.73,health:100,lift:0,angle:0,vx:0,vz:0,pushX:0,pushZ:0,trip:0});
+    Object.assign(player,{x:residence.x+2.5,z:residence.z-2.73,health:100,lift:0,angle:0,vx:0,vz:0,pushX:0,pushZ:0,trip:0,floorY:0});
+    syncFloor(player);
     jumpVelocity=0;
     heat=0;
     deathClock=0;
@@ -347,20 +389,20 @@ function start() {
     if(driving) {exitVehicle();return;}
     if(atShop()) {openShop();return;}
     if(atBed()) {
-      const record={health:player.health,cash,armed,equipped,ammo,recruits:gang.map(npc=>civilians.indexOf(npc))};
+      const record={health:player.health,cash,armed,equipped,ammo,recruits:gang.map(npc=>npc.id)};
       announce(saveProgress(record)?'Progresso salvo na cama.':'O navegador bloqueou o salvamento.');
       audio.bell();
       return;
     }
     const car=carAt();
-    if(!car) {announce('Aproxime-se de um carro ou moto.');return;}
+    if(!car) {announce(lockedDoor()?'Porta trancada.':'Nada para interagir aqui.');return;}
     if(car.driver) {
       const driver=ejected.find(npc=>npc.seated)??ejected.find(npc=>npc.exitAge>14 && npc.role==='civilian' && distance(npc,player)>11);
       if(driver) {
         const dir=car.angle-Math.PI/2;
         const x=car.x+Math.sin(dir)*(car.kind==='bike'?.95:1.51);
         const z=car.z+Math.cos(dir)*(car.kind==='bike'?.95:1.51);
-        const safe=clear(x,z,.29,world.solid)?{x,z}:{x:player.x,z:player.z};
+        const safe=actorClear({x,z},x,z,world.walkSolids(x,z,0),cars,activePeople,.29)?{x,z}:{x:player.x,z:player.z};
         resetActor(driver);
         Object.assign(driver,safe,{angle:dir,exitAnim:.44,fear:6,exitSide:-1,exitAge:0});
         if(car.rider) car.rider.root.visible=false;
@@ -388,7 +430,7 @@ function start() {
 
   function leaveLoot(kind, actor, count) {
     const mesh=new T.Mesh(pickupGeo,pickupColors[kind]);
-    const y=groundHeight(actor.x,actor.z)+.13;
+    const y=actorGround(actor)+.13;
     mesh.position.set(actor.x+.22,y,actor.z+.19);
     scene.add(mesh);
     pickups.push({mesh,kind,count,y,wait:.32,left:105});
@@ -400,7 +442,7 @@ function start() {
       item.left-=dt; item.wait-=dt;
       item.mesh.rotation.y+=dt*2.1;
       item.mesh.position.y=item.y+Math.sin(item.left*3.8)*.08;
-      const near=!driving && player.health>0 && item.wait<0 &&
+      const near=!driving && player.health>0 && item.wait<0 && Math.abs(actorGround(player)-item.y)<.65 &&
         Math.hypot(player.x-item.mesh.position.x,player.z-item.mesh.position.z)<1.03;
       if(near) {
         if(item.kind==='cash') {cash+=item.count;announce('R$ '+item.count+' recolhidos.');}
@@ -412,7 +454,7 @@ function start() {
     }
   }
 
-  function harm(npc,amount,byPlayer=false) {
+  function harm(npc,amount) {
     if(npc.health<=0 || amount<=0) return;
     npc.health=Math.max(0,npc.health-amount);
     if(npc===player) {
@@ -429,23 +471,22 @@ function start() {
     npc.down=npc.role==='police'?28:19;
     npc.model.shadow.visible=false;
     const stain=new T.Mesh(decals,bloodMat);
-    stain.position.set(npc.x,groundHeight(npc.x,npc.z)+.019,npc.z);
+    stain.position.set(npc.x,actorGround(npc)+.019,npc.z);
     stain.rotation.x=-Math.PI/2;
     stain.scale.set(.52,.32,1);
     scene.add(stain);
     npc.drop=stain;
     if(npc.role==='police') leaveLoot(armed?'ammo':'weapon',npc,12);
     else if(npc.role!=='ally' && !npc.robbed) leaveLoot('cash',npc,24+Math.floor(Math.abs(npc.z)%27));
-    if(byPlayer && npc.role==='police') wanted(43);
     if(rogue===npc) {rogue=null;rogueClock=29;}
     const ally=gang.indexOf(npc);
     if(ally>=0) gang.splice(ally,1);
   }
 
   function bodies(shooter) {
-    const actors=[...pedestrians,player];
+    const actors=[...activePeople,player];
     return actors.filter(actor=>actor!==shooter && living(actor) && !(actor===player && driving && driving.kind==='car')).map(actor=>{
-      const y=groundHeight(actor.x,actor.z)+(actor===player?player.lift:0);
+      const y=actorGround(actor)+(actor===player?player.lift:0);
       return {actor,y,bounds:[actor.x-.31,y+.10,actor.z-.31,actor.x+.31,y+1.9,actor.z+.31]};
     });
   }
@@ -453,16 +494,18 @@ function start() {
   function assessSight() {
     camera.getWorldDirection(shotDirection);
     const subjects=bodies(player);
-    const hit=traceShot(camera.position.toArray(),shotDirection.toArray(),world.solid,subjects,28).hit;
-    if(hit && distance(player,hit.actor)<24) return hit.actor;
-    let best=.17, candidate=null;
-    const origin=[player.x,groundHeight(player.x,player.z)+1.38+player.lift,player.z];
+    const solids=scanSolids();
+    const hit=traceShot(camera.position.toArray(),shotDirection.toArray(),solids,subjects,28).hit;
+    const origin=[player.x,actorGround(player)+1.38+player.lift,player.z];
+    if(hit && distance(player,hit.actor)<24 &&
+      reachable(origin,[hit.actor.x,hit.y+1.25,hit.actor.z],solids)) return hit.actor;
+    let best=.15,candidate=null;
     for(const {actor,y} of subjects) {
       if(distance(player,actor)>18) continue;
       projection.set(actor.x,y+1.25,actor.z).project(camera);
       const score=Math.hypot(projection.x,projection.y);
-      if(projection.z>=1 || score>=best || !reachable(origin,[actor.x,y+1.25,actor.z],world.solid)) continue;
-      best=score; candidate=actor;
+      if(projection.z>=1 || score>=best || !reachable(origin,[actor.x,y+1.25,actor.z],solids)) continue;
+      best=score;candidate=actor;
     }
     return candidate;
   }
@@ -472,21 +515,19 @@ function start() {
   }
 
   function policeWitness(shooter,victim) {
-    const y=groundHeight(shooter.x,shooter.z)+1.27;
+    const solids=scanSolids(),target={...shooter,ground:actorGround(shooter)};
     for(const unit of police) {
       const officer=unit.officer;
-      if(!living(officer) || distance(officer,shooter)>24) continue;
-      const ox=shooter.x-officer.x,oz=shooter.z-officer.z;
-      const seen=Math.sin(officer.angle)*ox+Math.cos(officer.angle)*oz;
-      if(officer!==victim && distance(officer,shooter)>6 && seen<-.24*Math.hypot(ox,oz)) continue;
-      if(officer===victim || reachable([officer.x,groundHeight(officer.x,officer.z)+1.55,officer.z],
-        [shooter.x,y,shooter.z],world.solid)) unit.retaliation=shooter;
+      if(!living(officer)) continue;
+      if(officer===victim || canSee({...officer,ground:actorGround(officer)},target,solids,
+        {range:25,fov:Math.PI*.84,eye:1.6,aim:1.24})) unit.retaliation=shooter;
     }
   }
 
   function recruit(npc) {
-    if(!npc || npc.role!=='civilian' || npc.health<=0) {announce('Mire em um pedestre para recrutar.');return;}
-    if(gang.length>=3) {announce('Sua gangue está cheia.');return;}
+    if(!npc || !['civilian','resident'].includes(npc.role) || npc.health<=0) {
+      announce('Mire em um pedestre disponível para recrutar.');return;
+    }
     npc.role='ally';
     npc.surrender=0;
     npc.fear=0;
@@ -498,7 +539,8 @@ function start() {
   }
 
   function updateRobbery(dt,npc) {
-    if(player.health<=0 || !npc || npc.role!=='civilian' || npc.robbed || distance(player,npc)>9.0) {
+    if(player.health<=0 || !npc || !['civilian','resident','clerk'].includes(npc.role) ||
+      npc.robbed || distance(player,npc)>9.0 || Math.abs(actorGround(player)-actorGround(npc))>.65) {
       if(robbery) {robbery.npc.surrender=0;robbery=null;}
       return;
     }
@@ -517,9 +559,9 @@ function start() {
       npc.robbed=true;
       npc.surrender=0;
       npc.fear=7;
-      leaveLoot('cash',npc,38+Math.floor(Math.abs(npc.z)%31));
+      leaveLoot('cash',npc,(npc.role==='clerk'?104:38)+Math.floor(Math.abs(npc.z)%31));
       wanted(15);
-      announce('Dinheiro no chão.');
+      announce(npc.role==='clerk'?'Dinheiro da loja no chão.':'Dinheiro no chão.');
       robbery=null;
     }
   }
@@ -527,9 +569,9 @@ function start() {
   function punch() {
     if(punchMotion>0 || player.health<=0 || player.trip>.15 || theft) return;
     player.angle=yaw;
-    punchMotion=.36;
+    punchMotion=FIST_DURATION;
     punchPending=true;
-    punchAt=.106;
+    punchAt=FIST_CONTACT_DELAY;
     tagForGang(cachedSight);
     audio.punch(false);
   }
@@ -537,23 +579,24 @@ function start() {
   function resolvePunch() {
     punchPending=false;
     if(player.health<=0 || driving) return;
-    const victim=findPunch(player,pedestrians.filter(person=>living(person)&&person.role!=='ally'),groundHeight(player.x,player.z)+player.lift,world.solid);
+    const victim=findPunch(player,activePeople.filter(person=>living(person)&&person.role!=='ally'&&
+      Math.abs(actorGround(player)-actorGround(person))<.73),actorGround(player)+player.lift,scanSolids());
     if(!victim) return;
     tagForGang(victim);
     audio.punch(true);
     const dx=victim.x-player.x,dz=victim.z-player.z,length=Math.max(.2,Math.hypot(dx,dz));
     victim.pushX=dx/length*3.6;victim.pushZ=dz/length*3.6;
-    harm(victim,18,true);
+    harm(victim,18);
     hitTime=.19;
     wanted(victim.role==='police'?28:12);
     announce(victim.health<=0?'Pedestre derrubado.':'Soco acertou.');
   }
 
   function fire(aim) {
-    if(punchMotion>0 || shotCooldown>0 || player.health<=0) return;
-    if(!armed || !equipped) return;
+    if(punchMotion>0 || shotCooldown>0 || player.health<=0 || !armed || !equipped) return;
     if(ammo<=0) {shotCooldown=.32;announce('Sem balas. Reponha na loja.');return;}
-    ammo--; shotCooldown=.28; flash=.095;
+    const watched=policeSees(player);
+    ammo--;shotCooldown=.28;flash=.095;
     player.angle=yaw;
     player.model.root.rotation.y=yaw;
     animatePerson(player.model,0,0,true,true,0,aim?pitch:pitch-.22);
@@ -562,45 +605,41 @@ function start() {
     const candidates=bodies(player);
     const vehicles=cars.map(car=>{
       const width=car.kind==='bike'?.31:.96,length=car.kind==='bike'?1.08:1.84;
-      const xSpace=width*Math.abs(Math.cos(car.angle))+length*Math.abs(Math.sin(car.angle));
-      const zSpace=width*Math.abs(Math.sin(car.angle))+length*Math.abs(Math.cos(car.angle));
-      return {car,bounds:[car.x-xSpace,.22,car.z-zSpace,car.x+xSpace,car.kind==='bike'?1.10:1.52,car.z+zSpace]};
+      const y=car.root.position.y;
+      return {car,oriented:{center:[car.x,y+(car.kind==='bike'?.67:.87),car.z],
+        half:[width,car.kind==='bike'?.44:.65,length],angle:car.angle}};
     });
-    const collisionTargets=[...candidates,...vehicles];
     camera.getWorldDirection(shotDirection);
+    const solids=scanSolids(),targets=[...candidates,...vehicles];
     const origin=shotFrom.toArray();
-    const cameraHit=traceShot(camera.position.toArray(),shotDirection.toArray(),world.solid,collisionTargets,52);
-    shotTo.copy(camera.position).addScaledVector(shotDirection,cameraHit.distance);
-    if((shotTo.x-shotFrom.x)*Math.sin(yaw)+(shotTo.z-shotFrom.z)*Math.cos(yaw)<.25) {
-      shotTo.copy(shotFrom).addScaledVector(shotDirection,4);
-    }
-    if(aim && padMode!=='keyboard' && !cameraHit.hit && cachedSight) {
-      shotTo.set(cachedSight.x,groundHeight(cachedSight.x,cachedSight.z)+1.28,cachedSight.z);
-    }
-    const direction=shotDirection.subVectors(shotTo,shotFrom).normalize();
-    const result=traceShot(origin,direction.toArray(),world.solid,collisionTargets);
-    shotTo.copy(shotFrom).addScaledVector(direction,result.distance);
+    const result=aimShot(camera.position.toArray(),shotDirection.toArray(),origin,solids,targets,{ground:groundHeight}).impact;
     const hit=result.hit;
-    if(hit?.actor && hit.actor.role!=='ally') {
+    const door=world.doors.find(door=>door.private && !door.breached && result.solid===door.closedSolid &&
+      Math.hypot(result.point[0]-door.handle.x,result.point[1]-door.handle.y,result.point[2]-door.handle.z)<.28);
+    let pressure=17;
+    if(door && world.breachDoor(door.id)) {
+      pressure=23;
+      announce('Fechadura rompida.');
+    } else if(hit?.actor && hit.actor.role!=='ally') {
       tagForGang(hit.actor);
-      harm(hit.actor,shotDamage(shotTo.y-hit.y),true);
-      if(hit.actor.role==='police') wanted(32);
+      harm(hit.actor,shotDamage(result.point[1]-hit.y));
+      pressure=hit.actor.role==='police'?34:23;
       hitTime=.21;
       announce(hit.actor.health<=0?'Alvo derrubado.':'Disparo acertou.');
     } else if(hit?.car) {
       hit.car.integrity=Math.max(0,hit.car.integrity-5);
       hitTime=.16;
     } else if(aim) tagForGang(cachedSight);
-    wanted(19);
-    for(const npc of civilians) if(npc.role==='civilian' && distance(npc,player)<18) npc.fear=Math.max(npc.fear,4.8);
-    tracerData.setXYZ(0,shotFrom.x,shotFrom.y,shotFrom.z);
-    tracerData.setXYZ(1,shotTo.x,shotTo.y,shotTo.z);
-    tracerData.needsUpdate=true;
+    wanted(pressure,player,watched);
+    for(const npc of activePeople) {
+      if(['civilian','resident'].includes(npc.role) && distance(npc,player)<17) npc.fear=Math.max(npc.fear,4.8);
+    }
+    effects.emit(origin,result,{mark:hit?.car?true:undefined,attach:hit?.car?.root});
   }
 
   function drive(dt,control) {
     const car=driving;
-    stepVehicle(car,dt,{throttle:control.y,steer:-control.x,brake:control.brake},world.solid,vehicleList());
+    stepVehicle(car,dt,{throttle:control.y,steer:-control.x,brake:control.brake},vehicleSolids,vehicleList());
     if(cameraIdle>1.15 && Math.abs(car.speed)>2.4) yaw=turn(yaw,car.angle,dt*2.3);
   }
 
@@ -617,40 +656,66 @@ function start() {
     const blend=1-Math.exp(-dt*(speed>.02?19:27));
     player.vx+=(Math.sin(direction)*speed-player.vx)*blend;
     player.vz+=(Math.cos(direction)*speed-player.vz)*blend;
-    const moved=moveActor(player,(player.vx+player.pushX)*dt,(player.vz+player.pushZ)*dt,world.solid,cars,pedestrians);
+    const moved=moveActor(player,(player.vx+player.pushX)*dt,(player.vz+player.pushZ)*dt,
+      walkGeometry(player),collisionFleet(player),activePeople);
     player.pushX*=Math.exp(-dt*6.2);player.pushZ*=Math.exp(-dt*6.2);
     player.trip=Math.max(0,player.trip-dt);
     if(punchMotion<=0 && canMove && (control.aim || magnitude>.05)) player.angle=turn(player.angle,control.aim?yaw:direction,dt*11);
     const model=player.model;
-    model.root.position.set(player.x,groundHeight(player.x,player.z)+player.lift,player.z);
+    syncFloor(player);
+    model.root.position.set(player.x,actorGround(player)+player.lift,player.z);
     model.root.rotation.set(player.health<=0?1.53:Math.min(1.25,player.trip*2.7),player.angle,0);
     model.shadow.visible=player.health>0 && player.lift<.06;
-    animatePerson(model,dt,player.trip>.05?0:Math.min(7.5,moved/dt),control.aim || flash>0,equipped && punchMotion<=0,punchMotion/.36,
-      control.aim?pitch:0);
+    animatePerson(model,dt,player.trip>.05?0:Math.min(7.5,moved/dt),
+      equipped && (control.aim || flash>0) && punchMotion<=0,equipped && punchMotion<=0,0,control.aim?pitch:0);
+    if(punchMotion>0 || control.aim && !equipped) poseFists(model,{aim:control.aim,punch:punchMotion,pitch});
     if(moved && stepCooldown<=0 && player.lift===0) {audio.step();stepCooldown=control.run?.27:.41;}
+  }
+
+  function doorApproach(car) {
+    const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
+    return [{x:car.x-sz*1.66,z:car.z+sx*1.66},{x:car.x+sz*1.66,z:car.z-sx*1.66}].find(point=>
+      actorClear(point,point.x,point.z,world.walkSolids(point.x,point.z,0),cars,activePeople,.38));
+  }
+
+  function approachCar(npc,car,point) {
+    const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
+    if(!point) return null;
+    const through=[.28,.5,.73,.92].some(t=>{
+      const x=npc.x+(point.x-npc.x)*t,z=npc.z+(point.z-npc.z)*t;
+      const dx=x-car.x,dz=z-car.z;
+      return Math.abs(dx*sx+dz*sz)<2.47 && Math.abs(dx*sz-dz*sx)<1.33;
+    });
+    if(!through) return point;
+    const offset=(npc.x-car.x)*sx+(npc.z-car.z)*sz>0?2.9:-2.9;
+    const side=(point.x-car.x)*sz-(point.z-car.z)*sx;
+    return {x:car.x+sx*offset+sz*side,z:car.z+sz*offset-sx*side};
   }
 
   function disembark(unit) {
     const npc=unit.officer,car=unit.car;
+    const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
+    const next=doorApproach(car)??[{x:car.x-sx*2.83,z:car.z-sz*2.83},{x:car.x+sx*2.87,z:car.z+sz*2.87}]
+      .find(point=>actorClear(point,point.x,point.z,world.walkSolids(point.x,point.z,0),cars,activePeople,.37));
+    if(!next) return false;
     npc.seated=false;
     npc.model.root.visible=true;
-    const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
-    const spots=[{x:car.x-sz*1.62,z:car.z+sx*1.62},{x:car.x+sz*1.62,z:car.z-sx*1.62},{x:car.x-sx*2.72,z:car.z-sz*2.72}];
-    const next=spots.find(({x,z})=>actorClear({x,z},x,z,world.solid,cars,pedestrians,.31))??npc.home;
-    npc.x=next.x;npc.z=next.z;
+    npc.x=next.x;npc.z=next.z;npc.floorY=0;syncFloor(npc);
     npc.angle=car.angle;
     npc.exitAnim=.38;
     npc.model.shadow.visible=true;
     car.doorTime=.65;
     unit.mode='foot';
+    return true;
   }
 
   function fireNPC(npc,target) {
     const vehicle=cars.includes(target)?target:null;
     if(distance(npc,target)>18 || distance(npc,target)<.5 || (vehicle?vehicle.integrity<=0:!living(target))) return false;
-    const height=groundHeight(npc.x,npc.z);
-    const destination=groundHeight(target.x,target.z)+(target===player?player.lift:0)+(vehicle?1.08:1.27);
-    if(!reachable([npc.x,height+1.35,npc.z],[target.x,destination,target.z],world.solid)) return false;
+    const height=actorGround(npc);
+    const destination=(vehicle?vehicle.root.position.y:actorGround(target))+(target===player?player.lift:0)+(vehicle?1.08:1.27);
+    const solids=scanSolids();
+    if(!reachable([npc.x,height+1.35,npc.z],[target.x,destination,target.z],solids)) return false;
     npc.angle=Math.atan2(target.x-npc.x,target.z-npc.z);
     npc.model.root.position.set(npc.x,height,npc.z);
     npc.model.root.rotation.y=npc.angle;
@@ -665,7 +730,7 @@ function start() {
     const dir=enemyDirection.subVectors(enemyTo,enemyFrom).normalize();
     const targets=bodies(npc);
     if(vehicle) targets.push({actor:vehicle,y:0,bounds:[target.x-.93,.30,target.z-1.02,target.x+.93,1.52,target.z+1.02]});
-    const result=traceShot(enemyFrom.toArray(),dir.toArray(),world.solid,targets,flight);
+    const result=traceImpact(enemyFrom.toArray(),dir.toArray(),solids,targets,flight,{ground:groundHeight});
     if(npc.role==='ally' && (target.role==='police'||result.hit?.actor.role==='police')) {
       policeWitness(npc,result.hit?.actor);
     }
@@ -679,10 +744,7 @@ function start() {
     enemyTo.copy(enemyFrom).addScaledVector(dir,result.distance);
     if(npc.role!=='ally' && (target===player || target===driving ||
       threatensPlayer(enemyFrom,enemyTo,driving??player))) tagForGang(npc);
-    hostileData.setXYZ(0,enemyFrom.x,enemyFrom.y,enemyFrom.z);
-    hostileData.setXYZ(1,enemyTo.x,enemyTo.y,enemyTo.z);
-    hostileData.needsUpdate=true;
-    hostileFlash=.098;
+    effects.emit(enemyFrom.toArray(),result,{enemy:true});
     npc.attack=(npc.role==='police'?.91:1.07)+(Math.sin(phase)+1)*.18;
     if(distance(npc,driving??player)<31) audio.shot();
     return true;
@@ -696,7 +758,7 @@ function start() {
       npc.angle=turn(npc.angle,Math.atan2(target.x-npc.x,target.z-npc.z),dt*12);
       return {speed:0,aim:true};
     }
-    return {speed:gap>3.3?aiWalk(npc,target,4.4,dt):0,aim:gap<12};
+    return {speed:gap>3.3 || Math.abs(actorGround(npc)-actorGround(target))>1.8?followIndoors(npc,target,4.4,dt):0,aim:gap<12};
   }
 
   function suspectFor(actor,dt) {
@@ -725,55 +787,92 @@ function start() {
     return npc.home;
   }
 
+  function startPatrol(unit,relocate=true) {
+    const {car,officer}=unit;
+    if(relocate) {
+      resetDriver(car,3);
+      car.x-=Math.sin(car.angle)*6.5;
+      car.z-=Math.cos(car.angle)*6.5;
+    } else {
+      const temp={};
+      resetDriver(temp,3);
+      car.driver=temp.driver;
+      const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
+      let best=Infinity;
+      car.driver.route.forEach((point,i)=>{
+        const dx=point.x-car.x,dz=point.z-car.z;
+        const score=Math.hypot(dx,dz)+(dx*sx+dz*sz<0?16:0);
+        if(score<best) {best=score;car.driver.next=i;}
+      });
+    }
+    unit.mode='patrol';unit.retaliation=null;unit.stop=null;
+    officer.seated=true;officer.model.root.visible=false;
+    poseCar(car,0);
+  }
+
   function updatePolice(dt,actor) {
-    const target=heat>0 && player.health>0?actor:rogue;
+    witnessClock-=dt;
+    if(witnessClock<=0 && heat>0) {
+      sightOfPolice=policeSees(actor);
+      if(sightOfPolice) lastKnown={x:actor.x,z:actor.z,y:actorGround(actor),health:100,seated:false,angle:actor.angle};
+      witnessClock=.24;
+    }
+    const target=heat>0 && player.health>0?(sightOfPolice?actor:lastKnown):rogue;
     const requested=target===rogue?(rogue?1:0):wantedUnits(heat);
     if(heat>0) {
-      const near=police.some(({mode,officer,car})=>mode==='foot'?living(officer)&&distance(officer,actor)<19:mode==='driving'&&distance(car,actor)<27);
-      heat=Math.max(0,heat-dt*(near?.57:.91));
-      if(heat===0) announce('Você despistou a polícia.');
+      heat=Math.max(0,heat-dt*(sightOfPolice?.23:1.10));
+      if(heat===0) {lastKnown=null;sightOfPolice=false;announce('Você despistou a polícia.');}
     }
     police.forEach((unit,i)=>{
       const npc=unit.officer,car=unit.car;
       if(unit.retaliation && !living(unit.retaliation)) unit.retaliation=null;
-      const defense=unit.retaliation, suspect=defense??target;
-      const dispatch=Boolean(defense || target && i<requested);
+      const defense=unit.retaliation,suspect=defense??target;
+      const dispatch=Boolean(defense || target&&i<requested);
       if(npc.health<=0) {
-        unit.mode='disabled';
+        unit.mode='disabled';car.driver=null;
         if(npc.down<=0 && distance(npc,actor)>13 && cars.every(other=>other===car || distance(other,unit.berth)>3.5)) {
           resetActor(npc);resetVehicle(car,unit.berth);poseCar(car,0);unit.mode='ready';unit.retaliation=null;
         }
         return;
       }
+      if(unit.mode==='patrol' && (dispatch || car.integrity<=0)) {
+        unit.mode='driving';car.driver=null;unit.stop=null;unit.stall=0;unit.departing=false;
+      }
+      if(unit.mode==='patrol') return;
       if(defense && (unit.mode==='ready'||unit.mode==='boarding')) unit.mode='foot';
       const exitTaken=police.slice(0,i).some(other=>other.mode==='boarding' && other.officer.x< -3.12);
       if(unit.mode==='ready' && dispatch && !exitTaken) {unit.mode='boarding';unit.stop=null;unit.stall=0;unit.departing=true;}
       if(unit.mode==='boarding') {
         if(!dispatch) unit.mode='foot';
         else {
-          const boardingPoint={x:car.x-1.18,z:car.z};
-          if(distance(npc,boardingPoint)<.60) {
-            npc.seated=true;npc.model.root.visible=false;unit.mode='driving';
-            car.doorTime=.60;
-          } else unit.intent=aiWalk(npc,stationExit(npc,boardingPoint),3.85,dt);
+          const entry=doorApproach(car);
+          if(entry && distance(npc,entry)<.63) {
+            npc.seated=true;npc.model.root.visible=false;unit.mode='driving';car.doorTime=.60;
+          } else if(entry) unit.intent=guide(npc,stationExit(npc,approachCar(npc,car,entry)),3.75,dt);
         }
       }
       if(unit.mode==='driving') {
+        if(!dispatch && i===0 && car.integrity>0 && !unit.departing) {startPatrol(unit,false);return;}
         const gap=suspect?distance(car,suspect):Infinity;
-        if(!dispatch || car.integrity<=0 || unit.stall>5.7 || (gap<12.7 && !(suspect===driving && Math.abs(driving.speed)>6))) {
-          stepVehicle(car,dt,{throttle:0,steer:0,brake:true},world.solid,cars);
-          if(Math.hypot(car.vx,car.vz)<3.0) disembark(unit);
-        } else patrolDrive(unit,suspect,world.solid,cars,pedestrians,dt);
+        const stop=!dispatch || car.integrity<=0 || (unit.stall>8.2 && !unit.maneuver) ||
+          (gap<12.7 && !(suspect===driving && Math.abs(driving.speed)>6));
+        if(stop) {
+          stepVehicle(car,dt,{throttle:0,steer:0,brake:true},vehicleSolids,cars);
+          if(Math.hypot(car.vx,car.vz)<2.7 && !disembark(unit) && car.integrity>0) {
+            stepVehicle(car,dt,{throttle:.21,steer:.26,brake:false},vehicleSolids,cars);
+          }
+        } else patrolDrive(unit,suspect,vehicleSolids,cars,activePeople,dt);
       } else if(unit.mode==='foot') {
         const leavingLobby=insideStation(npc) || (npc.x> -3.62 && npc.x< -2.64 && Math.abs(npc.z-station.z)<1.2);
-        if(dispatch && leavingLobby && !insideStation(suspect)) unit.intent=aiWalk(npc,stationExit(npc,suspect),4.5,dt);
+        if(dispatch && leavingLobby && !insideStation(suspect)) unit.intent=guide(npc,stationExit(npc,suspect),4.5,dt);
+        else if(dispatch && suspect===lastKnown) unit.intent=guide(npc,suspect,3.45,dt);
         else if(dispatch) unit.combat=pursue(npc,suspect,dt);
-        else if(distance(npc,npc.home)>.72) unit.intent=aiWalk(npc,stationReturn(npc),3.15,dt);
+        else if(distance(npc,npc.home)>.72) unit.intent=guide(npc,stationReturn(npc),3.15,dt);
         else if(distance(actor,car)>12 && distance(actor,unit.berth)>9 &&
           cars.every(other=>other===car || distance(other,unit.berth)>3.5)) {
           resetVehicle(car,unit.berth);poseCar(car,0);unit.mode='ready';
         }
-      }
+      } else if(unit.mode==='ready' && i===0 && !target && distance(actor,unit.berth)>19) startPatrol(unit);
       const flashing=unit.mode==='driving' || (dispatch && unit.mode==='foot');
       car.lamps.forEach((lamp,j)=>{lamp.visible=!flashing || Math.floor(introTime*8+j)%2===0;});
       if(flashing && alertCooldown<=0 && distance(actor,car)<42) {audio.siren();alertCooldown=1.35;}
@@ -782,10 +881,11 @@ function start() {
 
   function updateVehicles(dt,actor) {
     const active={player:driving,vehicles:vehicleList()};
-    driveTraffic(traffic,active,pedestrians,world.solid,dt,intersections);
+    const patrolCars=police.filter(unit=>unit.mode==='patrol').map(unit=>unit.car);
+    driveTraffic([...traffic,...patrolCars],active,activePeople,vehicleSolids,dt,intersections);
     for(const car of parked) {
       if(car!==driving && Math.hypot(car.vx,car.vz)>.06) {
-        stepVehicle(car,dt,{throttle:0,steer:0,brake:true},world.solid,active.vehicles);
+        stepVehicle(car,dt,{throttle:0,steer:0,brake:true},vehicleSolids,active.vehicles);
       } else if(car!==driving) car.impact=Math.max(0,car.impact-dt*21);
     }
     for(const car of cars) {
@@ -797,7 +897,7 @@ function start() {
           const next={};
           resetDriver(next,car.routeIndex);
           next.kind=car.kind;
-          if(positionAvailable(next,active.vehicles.filter(other=>other!==car),actor,world.solid)) Object.assign(car,next);
+          if(positionAvailable(next,active.vehicles.filter(other=>other!==car),actor,vehicleSolids)) Object.assign(car,next);
         }
       }
       if (car!==driving && car.impact>5 && distance(actor,car)<18 && impactCooldown<=0) {
@@ -832,10 +932,110 @@ function start() {
     }
   }
 
+  function guide(npc,target,speed,dt) {
+    if(!target) return 0;
+    const local=walkGeometry(npc),distanceToTarget=distance(npc,target);
+    if(distanceToTarget<.13) return 0;
+    const space=world.interiorAt(npc.x,npc.z,actorGround(npc));
+    const destination=world.interiorAt(target.x,target.z,target.y??actorGround(target));
+    if(!space && !destination && distanceToTarget>5.9) return aiWalk(npc,target,speed,dt);
+    let point=target;
+    const line=(origin,end)=>[.24,.46,.68,.88,1].every(f=>
+      clear(origin.x+(end.x-origin.x)*f,origin.z+(end.z-origin.z)*f,.29,local));
+    if(!line(npc,target)) {
+      let best=Infinity;
+      for(const box of local) {
+        if(distance(npc,box)>Math.hypot(box.w,box.d)*.5+3.1) continue;
+        for(const dx of [-1,1]) for(const dz of [-1,1]) {
+          const test={x:box.x+dx*(box.w*.5+.44),z:box.z+dz*(box.d*.5+.44)};
+          const gap=distance(npc,test),remaining=distance(test,target);
+          if(gap<.30 || gap>4.5 || !line(npc,test)) continue;
+          const score=gap+remaining+(remaining>distanceToTarget+.25?1.7:0);
+          if(score<best) {best=score;point=test;}
+        }
+      }
+    }
+    const dir=Math.atan2(point.x-npc.x,point.z-npc.z);
+    npc.angle=turn(npc.angle,dir,dt*8.5);
+    const step=Math.min(speed*dt,distance(npc,point));
+    return move(npc,npc.x+Math.sin(dir)*step,npc.z+Math.cos(dir)*step,.26,local)?speed:0;
+  }
+
+  function formationPoint(actor,index) {
+    const y=actorGround(actor);
+    if(world.interiorAt(actor.x,actor.z,y)) return {x:actor.x,z:actor.z,y};
+    const row=Math.floor((Math.sqrt(1+index)-1)*.75);
+    const side=(index%2===0?1:-1)*(1.05+(index%5)*.66);
+    const behind=3.1+row*1.1;
+    const sx=Math.sin(actor.angle),sz=Math.cos(actor.angle);
+    return {x:actor.x-sx*behind+sz*side,z:actor.z-sz*behind-sx*side,y};
+  }
+
+  function followIndoors(npc,target,speed,dt) {
+    const from=world.interiorAt(npc.x,npc.z,actorGround(npc));
+    const destination=world.interiorAt(target.x,target.z,target.y??actorGround(target));
+    if(from?.buildingId===destination?.buildingId && Math.abs((from?.floor??0)-(destination?.floor??0))<1.1) {
+      npc.pursuitRoute=[];npc.pursuitKey='';
+      return guide(npc,target,speed,dt);
+    }
+    const key=(destination?.buildingId??'street')+':'+(destination?.floor??0);
+    if(npc.pursuitKey!==key) {
+      npc.pursuitKey=key;
+      const route=[];
+      const fromBuilding=world.buildings.find(building=>building.id===from?.buildingId);
+      const toBuilding=world.buildings.find(building=>building.id===destination?.buildingId);
+      const fromUnit=fromBuilding?.units.find(unit=>Math.abs(unit.floor-from.floor)<.25);
+      const toUnit=toBuilding?.units.find(unit=>Math.abs(unit.floor-destination.floor)<.25);
+      if(fromBuilding) route.push(fromUnit?.inside,fromUnit?.entry,fromUnit?.outside,...[...(fromUnit?.stairs??[])].reverse(),
+        fromBuilding.inside,fromBuilding.entry,fromBuilding.outside);
+      if(toBuilding) route.push(toBuilding.outside,toBuilding.entry,toBuilding.inside,...(toUnit?.stairs??[]),
+        toUnit?.outside,toUnit?.entry,toUnit?.inside);
+      npc.pursuitRoute=route.filter(Boolean);
+    }
+    while(npc.pursuitRoute.length && distance(npc,npc.pursuitRoute[0])<.66 &&
+      Math.abs(actorGround(npc)-(npc.pursuitRoute[0].y??0))<.85) npc.pursuitRoute.shift();
+    return guide(npc,npc.pursuitRoute[0]??target,speed,dt);
+  }
+
+  function walkItinerary(npc,speed,dt) {
+    const stop=npc.itinerary[0];
+    if(!stop) return 0;
+    if(distance(npc,stop)<.58 && Math.abs(actorGround(npc)-(stop.y??0))<1.1) {
+      npc.itinerary.shift();
+      return 0;
+    }
+    return guide(npc,stop,speed,dt);
+  }
+
+  function visitAsResident(npc,dt) {
+    const record=residentsById.get(npc.unitId);
+    if(!record) return 0;
+    const {building,unit}=record;
+    if(npc.itinerary.length) return walkItinerary(npc,npc.pace,dt);
+    npc.scheduleClock-=dt;
+    if(npc.scheduleClock>0) return 0;
+    const away=distance(npc,building.outside)>5 &&
+      world.interiorAt(npc.x,npc.z,actorGround(npc))?.buildingId!==building.id;
+    const approach=building.approach??building.outside;
+    const stairs=unit.stairs??[];
+    if(away) npc.itinerary=[approach,building.outside,building.entry,building.inside,...stairs,unit.outside,unit.entry,unit.inside,unit.resident];
+    else {
+      const exterior={x:approach.x+Math.sin(npc.id.length)*4.3,z:approach.z+Math.cos(npc.home.z)*4.3,y:0};
+      npc.itinerary=[unit.inside,unit.entry,unit.outside,...[...stairs].reverse(),building.inside,building.entry,building.outside,approach,exterior];
+    }
+    npc.itinerary=npc.itinerary.filter(Boolean);
+    npc.scheduleClock=22+Math.abs(npc.home.x+introTime)%22;
+    return walkItinerary(npc,npc.pace,dt);
+  }
+
   function updatePeople(dt,actor,preview=false) {
-    const previous=new Map(pedestrians.map(npc=>[npc,{x:npc.x,z:npc.z}]));
+    activePeople=pedestrians.filter(npc=>distance(npc,actor)<(npc.role==='civilian'?69:47) ||
+      npc.role==='ally' || npc.role==='police' || npc===rogue || npc===gangTarget);
+    const liveSet=new Set(activePeople);
+    for(const npc of pedestrians) npc.model.root.visible=liveSet.has(npc)&&!npc.seated;
+    const previous=new Map(activePeople.map(npc=>[npc,{x:npc.x,z:npc.z}]));
     if(!preview) {suspectFor(actor,dt);updatePolice(dt,actor);}
-    for(const npc of pedestrians) {
+    for(const npc of activePeople) {
       if(npc.seated) continue;
       npc.attack-=dt;
       npc.stagger=Math.max(0,npc.stagger-dt);
@@ -845,7 +1045,7 @@ function start() {
       if(npc.health<=0) {
         npc.down=Math.max(0,npc.down-dt);
         npc.model.root.rotation.x+=(Math.PI/2-npc.model.root.rotation.x)*Math.min(1,dt*8);
-        npc.model.root.position.y=groundHeight(npc.x,npc.z)+.19;
+        npc.model.root.position.y=actorGround(npc)+.19;
         if(npc.drop) {
           const growth=Math.min(.63,.32+(19-npc.down)*.09);
           npc.drop.rotation.z=npc.angle;
@@ -865,28 +1065,39 @@ function start() {
         unit.intent=0;unit.combat=null;
       } else if(npc.role==='ally') {
         if(gangTarget && living(gangTarget)) ({speed,aim}=pursue(npc,gangTarget,dt));
-        else if(distance(actor,npc)>4.25+gang.indexOf(npc)*.93) speed=aiWalk(npc,actor,driving?6.1:4.5,dt);
+        else {
+          const slot=formationPoint(actor,gang.indexOf(npc));
+          if(distance(slot,npc)>1.25 || Math.abs(actorGround(npc)-slot.y)>1.75) speed=followIndoors(npc,slot,driving?6.1:4.45,dt);
+        }
       } else if(npc.role==='rogue') {
         const nearby=civilians.filter(person=>person!==npc && person.role==='civilian' && living(person))
           .sort((a,b)=>distance(npc,a)-distance(npc,b))[0];
         const officer=police.map(unit=>unit.officer).find(person=>living(person)&&distance(person,npc)<15);
         if(officer || nearby) ({speed,aim}=pursue(npc,officer??nearby,dt));
       } else if(npc.surrender<=0) {
-        const goal=npc.path[npc.next];
+        let goal=npc.path[npc.next];
+        if(npc.role==='civilian' && !npc.itinerary.length && npc.fear<=0 && publicShops.length) {
+          npc.scheduleClock-=dt;
+          if(npc.scheduleClock<=0) {
+            const shop=publicShops[Math.floor(Math.abs(npc.home.x*11+npc.home.z*4+introTime))%publicShops.length];
+            if(distance(npc,shop.outside)<38) npc.itinerary=[shop.outside,shop.entry,shop.inside,shop.entry,shop.outside];
+            npc.scheduleClock=36+Math.abs(npc.home.x)%25;
+          }
+        }
         npc.fear=Math.max(0,npc.fear-dt);
         if(npc.fear>0 && distance(npc,actor)<15) {
           const away=Math.atan2(npc.x-actor.x,npc.z-actor.z);
           for(const offset of [0,.84,-.84,1.52,-1.52]) {
             const dir=away+offset;
-            if(move(npc,npc.x+Math.sin(dir)*3.7*dt,npc.z+Math.cos(dir)*3.7*dt,.22,world.solid)) {
+            if(move(npc,npc.x+Math.sin(dir)*3.7*dt,npc.z+Math.cos(dir)*3.7*dt,.22,walkGeometry(npc))) {
               npc.angle=turn(npc.angle,dir,dt*8);speed=3.7;break;
             }
           }
-        } else if(goal) {
-          if(distance(npc,goal)<.43) npc.next=(npc.next+1)%npc.path.length;
-          const direction=Math.atan2(goal.x-npc.x,goal.z-npc.z);
-          if(move(npc,npc.x+Math.sin(direction)*npc.pace*dt,npc.z+Math.cos(direction)*npc.pace*dt,.22,world.solid)) speed=npc.pace;
-          npc.angle=turn(npc.angle,direction,dt*8);
+        } else if(npc.role==='resident') speed=visitAsResident(npc,dt);
+        else if(npc.itinerary.length) speed=walkItinerary(npc,npc.pace,dt);
+        else if(goal) {
+          if(distance(npc,goal)<.54) {npc.next=(npc.next+1)%npc.path.length;goal=npc.path[npc.next];}
+          speed=guide(npc,goal,npc.pace,dt);
         }
       }
       const old=previous.get(npc);
@@ -894,7 +1105,8 @@ function start() {
         const dx=npc.x-old.x+npc.pushX*dt,dz=npc.z-old.z+npc.pushZ*dt;
         npc.x=old.x;npc.z=old.z;
         const occupants=unit?.mode==='boarding'?cars.filter(car=>car!==unit.car):cars;
-        const moved=moveActor(npc,dx,dz,world.solid,occupants,[...pedestrians,...(driving?[]:[player])],.29);
+        const moved=moveActor(npc,dx,dz,walkGeometry(npc),actorGround(npc)>1.25?[]:occupants,
+          [...activePeople,...(driving?[]:[player])],.29);
         if(speed>0) speed=Math.min(speed,moved/dt);
       }
       npc.pushX*=Math.exp(-dt*7.6);npc.pushZ*=Math.exp(-dt*7.6);
@@ -906,18 +1118,19 @@ function start() {
           npc.pushX=clamp(vx,-8,8)*.59;npc.pushZ=clamp(vz,-8,8)*.59;
           if(damage>0) {
             npc.injuryCooldown=1.18;
-            harm(npc,damage,car===driving);
+            harm(npc,damage);
             if(car===driving && damage>12) wanted(19);
           }
         }
       }
       const model=npc.model;
       if(npc.health<=0) continue;
-      model.root.position.set(npc.x,groundHeight(npc.x,npc.z)+npc.exitAnim*.35,npc.z);
+      syncFloor(npc);
+      model.root.position.set(npc.x,actorGround(npc)+npc.exitAnim*.35,npc.z);
       model.root.rotation.set(npc.exitAnim*.7,npc.angle,npc.exitAnim*npc.exitSide*.89+(npc.stagger>0?Math.sin(npc.stagger*9)*.21:0));
-      animatePerson(model,dt,npc.exitAnim>0?2.9:speed,aim,npc.role!=='civilian',0,0,npc.surrender>0);
+      animatePerson(model,dt,npc.exitAnim>0?2.9:speed,aim,['police','rogue','ally'].includes(npc.role),0,0,npc.surrender>0);
     }
-    if(!preview && !driving && player.health>0 && player.lift<.3 && stepHitTime<=0) {
+    if(!preview && !driving && actorGround(player)<1.15 && player.health>0 && player.lift<.3 && stepHitTime<=0) {
       const struck=hitByVehicle(player,2.35);
       if(struck) {
         const {speed,vx,vz}=struck;
@@ -937,7 +1150,7 @@ function start() {
 
   function hitByVehicle(actor,minimum) {
     for(const car of cars) {
-      if(distance(car,actor)>5) continue;
+      if(actorGround(actor)>1.2 || distance(car,actor)>5) continue;
       const previous=vehicleStarts.get(car);
       const start=previous && distance(previous,car)<3?previous:null;
       const previousSpeed=start?Math.hypot(start.vx,start.vz):0;
@@ -950,44 +1163,36 @@ function start() {
   }
 
   function updateDoors(dt,actor) {
-    const people=[actor,...police.map(unit=>unit.officer),...gang];
-    for(const door of world.doors) {
-      const near=people.some(person=>!person.seated && person.health!==0 && distance(person,door)<2.23);
-      const angle=door.angle+(near?1.51:0);
-      door.door.rotation.y+=(angle-door.door.rotation.y)*(1-Math.exp(-dt*12));
-    }
+    world.updateDoors(dt,[actor,...activePeople.filter(npc=>living(npc))]);
   }
 
   function cameraPose(dt,actor,aim) {
-    const homeInterior=!driving && insideHouse(actor);
-    const stationInterior=!driving && insideStation(actor);
-    const interior=homeInterior||stationInterior;
+    const floor=actorGround(actor);
+    const room=!driving?world.interiorAt(actor.x,actor.z,floor):null;
+    const interior=Boolean(room);
     if(cameraInside!==interior) {cameraInside=interior;cameraFresh=true;}
     const portrait=camera.aspect<.85;
     const walkDistance=portrait?7.9:6.5;
     const length=interior?(aim?2.25:3.40):driving?(driving.kind==='bike'?8.2:portrait?12:10.2):aim?4.45:walkDistance;
-    const height=driving?1.95:1.38+groundHeight(actor.x,actor.z)+player.lift*.46;
+    const height=(driving?1.95+driving.root.position.y:1.38+floor+player.lift*.46);
     const side=driving?0:aim?.61:.22;
     const lean=aim?.10+pitch*.19:Math.max(interior?.28:.10,pitch);
     cameraTarget.set(actor.x+Math.cos(yaw)*side,height,actor.z-Math.sin(yaw)*side);
     desiredCamera.set(cameraTarget.x-Math.sin(yaw)*length*Math.cos(lean),height+Math.sin(lean)*length,cameraTarget.z-Math.cos(yaw)*length*Math.cos(lean));
     function keepInside(position) {
-      if(homeInterior) {
-        position.x=clamp(position.x,residence.x-5.70,residence.x+5.70);
-        position.z=clamp(position.z,residence.z-4.71,residence.z+4.66);
-      } else if(stationInterior) {
-        position.x=clamp(position.x,-10.45,-3.97);
-        position.z=clamp(position.z,station.z-9.39,station.z+9.39);
-      }
-      if(interior) position.y=Math.min(position.y,2.56);
+      if(!room) return;
+      position.x=clamp(position.x,room.x-room.w*.5+.30,room.x+room.w*.5-.30);
+      position.z=clamp(position.z,room.z-room.d*.5+.30,room.z+room.d*.5-.30);
+      position.y=clamp(position.y,room.floor+.55,room.ceiling-.42);
     }
     keepInside(desiredCamera);
+    const solids=walkGeometry(actor).filter(part=>part.h>floor+1.45);
     for(let t=.11;t<=1;t+=.067) {
       const x=T.MathUtils.lerp(cameraTarget.x,desiredCamera.x,t);
       const z=T.MathUtils.lerp(cameraTarget.z,desiredCamera.z,t);
-      if(!clear(x,z,.20,cameraWalls)) {
+      if(!clear(x,z,.20,solids)) {
         desiredCamera.lerp(cameraTarget,1-Math.max(.06,t-.105));
-        desiredCamera.y=Math.max(desiredCamera.y,1.95);
+        desiredCamera.y=Math.max(desiredCamera.y,floor+1.95);
         break;
       }
     }
@@ -1015,14 +1220,14 @@ function start() {
     const homeDistance=Math.round(distance(actor,residence));
     element('detail').textContent='Casa '+homeDistance+' m · Loja '+Math.round(distance(actor,weaponShop))+' m';
     element('cash').textContent='R$ '+cash.toLocaleString('pt-BR');
-    element('crew').textContent='Gangue '+gang.length+' / 3';
+    element('crew').textContent='Gangue '+gang.length;
     const prompt=element('prompt');
     const key=padMode==='pad'?'Y · ':padMode==='keyboard'?'E · ':'';
-    const shopping=atShop(), saving=atBed(), car=driving??carAt();
+    const shopping=atShop(), saving=atBed(), locked=lockedDoor(), car=driving??carAt();
     const activeRobbery=robbery && aim && noticeTime<=0;
-    prompt.hidden=!(car || shopping || saving || noticeTime>0 || activeRobbery);
+    prompt.hidden=!(car || shopping || saving || locked || noticeTime>0 || activeRobbery);
     const action=driving?'Sair '+(driving.kind==='bike'?'da moto':'do carro'):saving?'Salvar na cama':shopping?'Abrir loja de armas':
-      car?'Pegar '+(car.kind==='bike'?'a moto':'o cupê'):'';
+      locked?'Porta trancada':car?'Pegar '+(car.kind==='bike'?'a moto':'o cupê'):'';
     prompt.textContent=noticeTime>0?notice:activeRobbery?'Mantenha a mira · '+Math.ceil(robbery.left)+' s':key+action;
     element('heat').hidden=!rank;
     element('heat').textContent='★'.repeat(rank)+' PROCURADO';
@@ -1034,19 +1239,23 @@ function start() {
     element('crosshair').hidden=!(aim || (equipped && crosshairTime>0 && !driving));
     element('interact').textContent=driving?'Sair':saving?'Salvar':shopping?'Loja':'Entrar';
     element('sprint').textContent=driving?'Freio':'Correr';
-    element('aim').hidden=element('fire').hidden=Boolean(driving)||!equipped;
+    element('aim').hidden=Boolean(driving);
+    element('fire').hidden=Boolean(driving)||!equipped;
     element('weapon').hidden=Boolean(driving)||!armed;
     element('weapon').textContent=equipped?'Punhos':'Pistola';
     element('jump').hidden=element('punch').hidden=Boolean(driving);
     element('recruit').hidden=Boolean(driving)||!aim;
-    element('hud').classList.toggle('armed',armed&&!driving);
+    element('hud').classList.toggle('armed',!driving);
     element('hud').classList.toggle('driving',Boolean(driving));
     minimap.drawImage(mapBase,0,0);
     for(const car of civilianCars) if(car!==driving && car.integrity>0) dot(car,car.driver?'#82b9b3':'#eab987',car.kind==='bike'?2.2:car.driver?2.6:3.5);
     dot(weaponShop,'#eaff89',6);
     dot(residence,'#dcc39b',5);
     dot(station,'#99c6ff',5);
-    for(const unit of police) if(unit.mode==='driving'||unit.mode==='foot') dot(unit.mode==='driving'?unit.car:unit.officer,'#ff7769',4.6);
+    for(const building of publicShops) if(building.kind!=='armory') dot(building.entry,'#dbae80',2.5);
+    for(const unit of police) if(['driving','patrol','foot'].includes(unit.mode)) {
+      dot(unit.officer.seated?unit.car:unit.officer,unit.mode==='patrol'?'#8fc9f8':'#ff7769',4.3);
+    }
     for(const npc of gang) dot(npc,'#97ebaf',3.5);
     minimap.save();
     minimap.translate(mapPos(actor.x),mapPos(actor.z));
@@ -1091,14 +1300,14 @@ function start() {
         cachedSight=null;
         crosshairTime=0;
       }
-      const aim=control.aim && equipped && !driving && punchMotion<=0 && player.health>0;
+      const aim=control.aim && !driving && punchMotion<=0 && player.health>0;
       if(aim!==previousAim) {pitch=aim?.015:.22;previousAim=aim;}
       cameraIdle=Math.abs(control.lookX)+Math.abs(control.lookY)>.003?0:cameraIdle+dt;
       yaw-=control.lookX;
       pitch=clamp(pitch+control.lookY,aim?-1.03:-.31,.84);
       if(driving && cameraIdle>1.2) pitch+=(.24-pitch)*dt;
       impactCooldown-=dt; shotCooldown-=dt; stepCooldown-=dt; stepHitTime-=dt;
-      alertCooldown-=dt; noticeTime-=dt; flash-=dt; hostileFlash-=dt;
+      alertCooldown-=dt; noticeTime-=dt; flash-=dt;effects.update(dt);
       punchMotion=Math.max(0,punchMotion-dt);
       if(punchPending) {
         punchAt-=dt;
@@ -1138,14 +1347,12 @@ function start() {
         cachedSight=assessSight();sightTimer=.092;
       } else if(!shouldAim) cachedSight=null;
       if(control.recruit && !driving) recruit(cachedSight);
-      updateRobbery(dt,cachedSight);
+      updateRobbery(dt,shouldAim&&equipped?cachedSight:null);
       if((control.punch || control.fire && !equipped) && !driving) punch();
       if(control.fire && !driving) fire(shouldAim);
-      tracer.visible=flash>0;
-      hostileTracer.visible=hostileFlash>0;
       element('hitmark').hidden=hitTime<=0;
       element('impact').hidden=impactTime<=0;
-      world.marker.visible=distance(target,weaponShop)<19;
+      world.marker.visible=distance(target,weaponShop)>2.8 && distance(target,weaponShop)<13;
       world.beacon.rotation.y=introTime*2;
       world.beacon.position.y=2.55+Math.sin(introTime*4)*.27;
       uiTime-=dt;
@@ -1186,12 +1393,13 @@ function start() {
   shop.addEventListener('cancel',event=>{event.preventDefault();closeShop();});
   function playOrRestore() {
     if(!started && progress) {
-      Object.assign(player,{x:progress.x,z:progress.z,health:progress.health});
+      Object.assign(player,{x:progress.x,z:progress.z,health:progress.health,floorY:0});
+      syncFloor(player);
       cash=progress.cash; armed=progress.armed; equipped=armed&&progress.equipped;
       ammo=armed?progress.ammo:0;
       for(const id of new Set(progress.recruits)) {
-        const npc=civilians[id];
-        if(npc) {npc.role='ally';gang.push(npc);}
+        const npc=typeof id==='number'?civilians[id]:actorIndex.get(id);
+        if(npc) {npc.role='ally';npc.seated=false;npc.model.root.visible=true;gang.push(npc);}
       }
       setPlaying(true);
       yaw=-Math.PI/2;

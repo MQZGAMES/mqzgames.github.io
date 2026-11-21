@@ -1,8 +1,10 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { groundHeight } from './contact.js';
 
 const box = new T.BoxGeometry();
+const cloth = new RoundedBoxGeometry(1,1,1,1,.135);
 const sphere = new T.SphereGeometry(1, 10, 7);
 const cylinder = new T.CylinderGeometry(1, 1, 1, 12);
 const materials = new Map();
@@ -39,7 +41,7 @@ export function piece(group, shape, color, x, y, z, w, h, d, shines = false) {
   if (!materials.has(key)) materials.set(key, new T.MeshStandardMaterial({
     color, roughness: shines ? .33 : .87, metalness: shines ? .2 : 0
   }));
-  const mesh = new T.Mesh({box, sphere, cylinder}[shape], materials.get(key));
+  const mesh = new T.Mesh({box,cloth,sphere,cylinder}[shape], materials.get(key));
   mesh.scale.set(w, h, d);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
@@ -65,38 +67,52 @@ export function person(scene, shirt, trousers, skin, hero = false) {
   const body = new T.Group();
   root.add(body);
   const add = (shape, color, x, y, z, w, h, d) => piece(body,shape,color,x,y,z,w,h,d);
-  add('box', trousers,0,.94,0,.45,.26,.28);
-  add('box',shirt,0,1.24,0,.52,.48,.32);
-  add('box', hero ? 0xeadd92 : shirt,0,1.34,.169,.19,.10,.025);
+  add('cloth',trousers,0,.94,0,.44,.25,.29);
+  add('cloth',shirt,0,1.22,0,.49,.49,.31);
+  add('cloth',shirt,0,1.39,0,.55,.215,.337);
+  add('cloth',hero?0x817e45:shirt,0,1.05,.006,.473,.049,.312);
+  if(hero) {
+    add('cloth',0xc4b45a,-.128,1.343,.169,.078,.057,.014);
+    add('cloth',0x255043,0,1.427,-.132,.29,.132,.084);
+  }
   add('cylinder',skin,0,1.50,0,.09,.13,.09);
   add('sphere',skin,0,1.67,.015,.168,.197,.157);
-  add('sphere',0x241b19,0,1.77,-.018,.169,.112,.151);
+  add('sphere',0x2e231d,0,1.77,-.031,.162,.112,.141);
+  add('sphere',skin,0,1.655,.165,.033,.034,.034);
+  add('cloth',0x56413a,0,1.588,.154,.072,.012,.015);
+  for(const side of [-1,1]) {
+    add('sphere',skin,side*.155,1.66,.023,.032,.052,.025);
+    add('cloth',0x2c2928,side*.061,1.711,.152,.043,.012,.012);
+    add('cloth',0xa79e91,side*.061,1.692,.156,.032,.012,.012);
+    add('cloth',0x2e2823,side*.06,1.693,.163,.016,.012,.009);
+  }
   if (hero) {
     add('sphere',0x173b36,0,1.79,.012,.181,.132,.164);
-    add('box',0x173b36,0,1.77,.146,.25,.033,.19);
+    add('cloth',0x26473e,0,1.77,.159,.27,.033,.17);
   }
   const arms = [], legs = [], forearms=[], shins=[];
   for (const side of [-1,1]) {
     const arm = new T.Group();
     arm.position.set(side * .31,1.42,0);
     body.add(arm);
-    piece(arm,'box',shirt,0,-.12,0,.17,.24,.18);
+    piece(arm,'cloth',shirt,0,-.105,0,.173,.226,.187);
     const forearm=new T.Group();
     forearm.position.y=-.23;
     arm.add(forearm);
-    piece(forearm,'box',skin,0,-.101,0,.14,.205,.13);
+    piece(forearm,'cloth',skin,0,-.101,0,.132,.22,.119);
     piece(forearm,'sphere',skin,0,-.227,.012,.082,.084,.077);
     forearms.push(forearm);
     arms.push(arm);
     const leg = new T.Group();
     leg.position.set(side * .128,.94,0);
     body.add(leg);
-    piece(leg,'box',trousers,0,-.205,0,.211,.410,.226);
+    piece(leg,'cloth',trousers,0,-.205,0,.210,.427,.228);
     const shin=new T.Group();
     shin.position.y=-.412;
     leg.add(shin);
-    piece(shin,'box',trousers,0,-.18,0,.205,.36,.218);
-    piece(shin,'box',hero ? 0xe9dbc8 : 0x221e22,0,-.388,.055,.208,.15,.32);
+    piece(shin,'cloth',trousers,0,-.18,0,.182,.38,.198);
+    piece(shin,'cloth',hero?0xd2c3a8:0x302b29,0,-.386,.062,.201,.143,.304);
+    piece(shin,'cloth',hero?0x685d53:0x292523,0,-.445,.059,.202,.037,.313);
     shins.push(shin);
     legs.push(leg);
   }
@@ -279,12 +295,12 @@ export function motorcycle(scene,color) {
   smoke.position.set(0,.55,.32);
   for(const z of [-.73,.78]) {
     const wheel=new T.Group();
-    wheel.position.set(0,.32,z);
+    wheel.position.set(0,.33,z);
     piece(wheel,'cylinder',0x252629,0,0,0,.33,.12,.33).rotation.z=Math.PI/2;
     piece(wheel,'cylinder',0x858485,0,0,0,.205,.14,.205).rotation.z=Math.PI/2;
     combineParts(wheel,meshes(wheel));
     wheels.push(wheel);
-    bike.root.add(wheel);
+    body.add(wheel);
     add('box',0x5b6160,0,.55,z,.09,.49,.085).rotation.x=z>0?-.21:.46;
   }
   combineParts(body,meshes(body).filter(mesh=>mesh!==hood));
@@ -303,7 +319,6 @@ export function poseCar(car, dt, steer = 0) {
     return y;
   });
   const ground=(front+back)/car.wheels.length;
-  car.root.position.set(car.x,ground,car.z);
   car.root.rotation.y=car.angle;
   car.body.rotation.x=-Math.atan2((front-back)/(bike?1:2),bike?1.51:2.64);
   const lean=bike?(car.integrity<=0?1.25:-steer*Math.min(.53,Math.abs(car.speed)*.039)):steer*Math.min(.09,Math.abs(car.speed)*.004);
@@ -313,11 +328,12 @@ export function poseCar(car, dt, steer = 0) {
   car.door.rotation.y=Math.sin(Math.min(1,car.doorTime/.65)*Math.PI)*1.06;
   const radius=bike?.33:.408;
   const tilt=bike?car.body.rotation.z:0;
+  car.root.position.set(car.x,ground+(bike?Math.abs(Math.sin(tilt))*.06:0),car.z);
   if(car.handlebar) car.handlebar.rotation.y=steer*.22;
   car.wheelSpin=(car.wheelSpin+car.speed*dt/radius)%(Math.PI*2);
   car.wheels.forEach((wheel,i)=>{
-    wheel.position.y=heights[i]-ground+radius*Math.cos(tilt)+(bike?Math.abs(Math.sin(tilt))*.06:0);
-    wheel.rotation.set(car.wheelSpin,wheel.position.z>0?steer*(bike?.22:.23):0,tilt,'ZYX');
+    if(!bike) wheel.position.y=heights[i]-ground+radius;
+    wheel.rotation.set(car.wheelSpin,wheel.position.z>0?steer*(bike?.22:.23):0,0,'YXZ');
   });
   car.hood.rotation.x=(100-car.integrity)*.0031;
   car.hood.rotation.z=(100-car.integrity)*.0013;

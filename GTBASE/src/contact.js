@@ -18,6 +18,7 @@ export function actorClear(actor,x,z,solids,vehicles,crowd,radius=.34) {
   }
   for(const other of crowd) {
     if(other===actor || other.health<=0 || other.seated) continue;
+    if(Math.abs((actor.floorY??0)-(other.floorY??0))>1.05) continue;
     const minimum=radius+.28;
     if(distance(other,{x,z})<minimum && distance(other,{x,z})<=distance(other,actor)) return false;
   }

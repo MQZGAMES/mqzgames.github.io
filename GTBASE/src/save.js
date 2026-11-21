@@ -13,7 +13,8 @@ export function loadProgress(storage) {
       equipped:record.equipped===true,
       ammo:clamp(Math.floor(record.ammo),0,360),
       health:clamp(Math.floor(record.health),1,100),
-      recruits:Array.isArray(record.recruits)?record.recruits.filter(Number.isInteger).slice(0,3):[]
+      recruits:Array.isArray(record.recruits)?[...new Set(record.recruits.filter(id=>
+        Number.isInteger(id) && id>=0 || typeof id==='string' && /^[\w:-]{1,80}$/.test(id)))]:[]
     };
   } catch {return null;}
 }

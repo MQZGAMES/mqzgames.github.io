@@ -1,5 +1,5 @@
 import { clear, distance, move, roads, turn } from './rules.js';
-import { bypass, safeSpeed, steeringCommand } from './traffic.js';
+import { bypass, recoverDriver, safeSpeed, steeringCommand } from './traffic.js';
 import { stepVehicle } from './vehicle.js';
 
 export function footNavigator(solids) {
@@ -11,11 +11,13 @@ export function footNavigator(solids) {
     const adjacent=[here>=cells?here-cells:-1,here<cells*(cells-1)?here+cells:-1,here%cells?here-1:-1,here%cells<cells-1?here+1:-1];
     return adjacent.filter(next=>next>=0 && free[next] && clear((node.x+nodes[next].x)*.5,(node.z+nodes[next].z)*.5,.38,solids));
   });
+  const directLine=(origin,target)=>[.18,.35,.53,.72,.89,1].every(f=>
+    clear(origin.x+(target.x-origin.x)*f,origin.z+(target.z-origin.z)*f,.29,solids));
   const nearest=target=>{
     let result=-1, best=Infinity;
     for(let i=0;i<nodes.length;i++) if(free[i]) {
       const dx=nodes[i].x-target.x,dz=nodes[i].z-target.z, d=dx*dx+dz*dz;
-      if(d<best) {result=i;best=d;}
+      if(d<best && directLine(target,nodes[i])) {result=i;best=d;}
     }
     return result;
   };
@@ -43,17 +45,20 @@ export function footNavigator(solids) {
     const dx=target.x-actor.x,dz=target.z-actor.z;
     const gap=Math.hypot(dx,dz);
     if(gap<.16) return 0;
-    const direct=gap<7 && [.2,.4,.6,.8,1].every(f=>clear(actor.x+dx*f,actor.z+dz*f,.24,solids));
+    const direct=gap<7 && directLine(actor,target);
     if(!direct && actor.repath<=0) {
       actor.route=path(actor,target);
       actor.repath=1.25;
     }
-    while(actor.route?.length && distance(actor,actor.route[0])<.7) actor.route.shift();
+    while(actor.route?.length && (distance(actor,actor.route[0])<.7 ||
+      actor.route.length>1 && distance(actor,actor.route[1])<4 && directLine(actor,actor.route[1]))) actor.route.shift();
     const next=direct?target:actor.route?.[0]??target;
     const dir=Math.atan2(next.x-actor.x,next.z-actor.z);
     const step=Math.min(speed*dt,distance(actor,next));
     actor.angle=turn(actor.angle,dir,dt*8.5);
-    return move(actor,actor.x+Math.sin(dir)*step,actor.z+Math.cos(dir)*step,.24,solids)?speed:0;
+    const moved=move(actor,actor.x+Math.sin(dir)*step,actor.z+Math.cos(dir)*step,.24,solids);
+    if(!moved) actor.repath=Math.min(actor.repath,.18);
+    return moved?speed:0;
   };
 }
 
@@ -86,8 +91,9 @@ export function patrolDrive(unit,target,solids,vehicles,people,dt) {
   const planned=Math.min(pace,proximity*.85,Math.max(3,distance(car,unit.stop)*1.85));
   const safe=safeSpeed(car,vehicles,people,planned);
   const detour=!unit.departing && safe<2.5?bypass(car,vehicles,people,solids):null;
-  const command=steeringCommand(car,detour??unit.stop,detour?4.4:safe);
+  const normal=steeringCommand(car,detour??unit.stop,detour?4.4:safe);
+  const command=recoverDriver(car,unit,unit.stop,vehicles,people,solids,dt,normal);
   const blocked=car.impact>3 || Math.abs(car.speed)<1.0;
-  unit.stall=blocked?unit.stall+dt:0;
+  unit.stall=blocked&&!unit.maneuver?unit.stall+dt:0;
   stepVehicle(car,dt,command,solids,vehicles);
 }

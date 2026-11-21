@@ -42,3 +42,11 @@ test('bed save round trips the inventory, life and recruited IDs',()=>{
   const data=loadProgress(storage);
   assert.deepEqual([data.cash,data.armed,data.equipped,data.ammo,data.health,data.recruits],[81,true,false,17,73,[2,4]]);
 });
+
+test('the gang save keeps more than three recruits and accepts saves from before string IDs',()=>{
+  const map=new Map();
+  const storage={setItem:(key,value)=>map.set(key,value),getItem:key=>map.get(key)};
+  const recruits=[0,1,'street:3','resident:lot-4:0','resident:lot-5:1','driver:2',1];
+  assert.equal(saveProgress({cash:50,armed:false,equipped:false,ammo:0,health:100,recruits},storage),true);
+  assert.deepEqual(loadProgress(storage).recruits,recruits.slice(0,-1));
+});

@@ -1,8 +1,8 @@
 import { clamp, clear } from './rules.js';
 
 const profiles={
-  car:{axle:1.17,radius:.98,offsets:[-1.17,0,1.17],mass:1},
-  bike:{axle:.73,radius:.39,offsets:[-.73,0,.73],mass:.39}
+  car:{width:.99,length:2.135,radius:.98,offsets:[-1.17,0,1.17],mass:1},
+  bike:{width:.35,length:1.105,radius:.39,offsets:[-.73,0,.73],mass:.39}
 };
 const profile=kind=>profiles[kind]??profiles.car;
 
@@ -21,9 +21,20 @@ export function vehicleClear(x,z,angle,solids,kind='car') {
 export function vehicleContains(car,x,z,extra=0) {
   const sx=Math.sin(car.angle), sz=Math.cos(car.angle);
   const dx=x-car.x,dz=z-car.z;
-  const width=car.kind==='bike'?.35:.99, length=car.kind==='bike'?1.105:2.135;
+  const {width,length}=profile(car.kind);
   const across=Math.abs(dx*sz-dz*sx)-width, along=Math.abs(dx*sx+dz*sz)-length;
   return across<=0 && along<=0 || Math.hypot(Math.max(0,across),Math.max(0,along))<extra;
+}
+
+export function vehicleExtent(kind,difference=0) {
+  const {width,length}=profile(kind);
+  const align=Math.abs(Math.cos(difference)),cross=Math.abs(Math.sin(difference));
+  return {width:width*align+length*cross,length:length*align+width*cross};
+}
+
+export function vehicleFits(frame,solids,vehicles,exclude=frame) {
+  return vehicleClear(frame.x,frame.z,frame.angle,solids,frame.kind) &&
+    !contact(exclude,frame.x,frame.z,frame.angle,vehicles);
 }
 
 function contact(car,x,z,angle,vehicles) {
@@ -75,7 +86,8 @@ export function stepVehicle(car,dt,command,solids,vehicles) {
   longitudinal=clamp(longitudinal+throttle*acceleration*dt,bike?-2.7:-8.4,bike?31:27);
   const drag=car.integrity<=0?3.8:brake?(bike?6.7:5.5):Math.abs(throttle)<.07?1.58:.36;
   longitudinal*=Math.exp(-dt*drag);
-  const lateral=(car.vx*f0z-car.vz*f0x)*Math.exp(-dt*(brake?2.15:8.1));
+  const lateralGrip=bike?(brake?5.2:13.5):(brake?2.15:8.1);
+  const lateral=(car.vx*f0z-car.vz*f0x)*Math.exp(-dt*lateralGrip);
   car.vx=longitudinal*f0x+lateral*f0z;
   car.vz=longitudinal*f0z-lateral*f0x;
 
