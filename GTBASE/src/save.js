@@ -1,4 +1,4 @@
-import { clamp, residence } from './rules.js';
+import { clamp, lajes, residence } from './rules.js';
 import { cleanLook } from './looks.js';
 
 const saveKey='gtbase:progress:1';
@@ -16,7 +16,7 @@ export function loadProgress(storage) {
     const garage=stored && (stored.kind==='car' && vehicleModels.includes(stored.model) || stored.kind==='bike' && bikeModels.includes(stored.model)) &&
       Number.isInteger(stored.color) && stored.color>=0 && stored.color<=0xffffff?{kind:stored.kind,model:stored.model,color:stored.color}:null;
     return {
-      x:residence.x+2.5,z:residence.z-2.73,
+      ...(record.checkpoint==='lajes'?lajes.home:{x:residence.x+2.5,z:residence.z-2.73}),
       cash:clamp(Math.floor(record.cash),0,999999),
       armed:record.armed===true,
       equipped:record.equipped===true,

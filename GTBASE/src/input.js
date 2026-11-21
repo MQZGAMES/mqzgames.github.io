@@ -28,7 +28,7 @@ export function controls(onToggle, isPlaying) {
   setMode(mode);
   const bound = new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
     'ShiftLeft','ShiftRight','Space','KeyE','KeyF','KeyQ','KeyR','KeyG','KeyV','KeyB','Digit1','Digit2','Digit3','Digit4','Escape']);
-  let order='';
+  let order='', dealerHold=0, dealerCancelled=false;
   window.addEventListener('keydown', event => {
     if (!bound.has(event.code) || (event.target instanceof HTMLSelectElement && !isPlaying())) return;
     if (isPlaying() || event.code==='Escape') event.preventDefault();
@@ -47,13 +47,13 @@ export function controls(onToggle, isPlaying) {
       if (event.code==='KeyV') once.add('weapon');
       if (event.code==='Space') once.add('jump');
       if (event.code==='KeyB') once.add('sell');
-      const digits={Digit1:'follow',Digit2:'wait',Digit3:'attack',Digit4:'dealer'};
+      const digits={Digit1:'follow',Digit2:'wait',Digit3:'attack'};
       if (digits[event.code]) order=digits[event.code];
     }
   });
-  window.addEventListener('keyup', event=>keys.delete(event.code));
+  window.addEventListener('keyup', event=>{if(event.code==='Digit4' && keys.has('Digit4') && !dealerCancelled) order='dealer';keys.delete(event.code);});
   function clear() {
-    keys.clear();
+    keys.clear();dealerHold=0;dealerCancelled=false;order='';
     once.clear();
     held.clear();
     stick.x=0; stick.y=0;
@@ -196,6 +196,14 @@ export function controls(onToggle, isPlaying) {
       const keyboardX=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
       const keyboardY=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
       const padThrottle=(pad?.buttons[7]?.value ?? 0)-(pad?.buttons[6]?.value ?? 0);
+      const holdingDealer=keys.has('Digit4') || Boolean(buttons[5]);
+      if(holdingDealer && !dealerCancelled){
+        dealerHold+=dt;
+        if(dealerHold>=.55){order='undealer';dealerCancelled=true;}
+      } else if(!holdingDealer) {
+        if(previousPad[5] && !dealerCancelled) order='dealer';
+        dealerHold=0;dealerCancelled=false;
+      }
       const result={
         x:clamp(keyboardX+stick.x+axes[0],-1,1),
         y:clamp(keyboardY-stick.y+(driving && Math.abs(padThrottle)>.05?padThrottle:-axes[1]),-1,1),
@@ -215,7 +223,7 @@ export function controls(onToggle, isPlaying) {
         navUp:pressed(12),
         navDown:pressed(13),
         sell:once.has('sell') || pressed(13),
-        order:order || (pressed(14)?'toggle':'') || (pressed(4)?'attack':'') || (pressed(5)?'dealer':''),
+        order:order || (pressed(14)?'toggle':'') || (pressed(4)?'attack':''),
         mode
       };
       order='';

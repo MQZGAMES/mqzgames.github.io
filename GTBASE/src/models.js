@@ -4,6 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { defaultLook, metals } from './looks.js';
 
 const box = new T.BoxGeometry();
+const tankTorso = new T.BoxGeometry(1,1,1,10,8,2).toNonIndexed();
 const cloth = new RoundedBoxGeometry(1,1,1,2,.29);
 const sphere = new T.SphereGeometry(1, 10, 7);
 const cylinder = new T.CylinderGeometry(1, 1, 1, 12);
@@ -21,9 +22,17 @@ export function combineParts(group,parts,material=characterMat) {
     const colors=new Float32Array(count*3);
     const color=part.material.color;
     for(let i=0;i<colors.length;i+=3) {
-      colors[i]=color.r;
-      colors[i+1]=color.g;
-      colors[i+2]=color.b;
+      let pigment=color;
+      if(part.userData.tankSkin){
+        const local=part.geometry.attributes.position;
+        const vertex=Math.floor(i/9)*3;
+        const x=(local.getX(vertex)+local.getX(vertex+1)+local.getX(vertex+2))/3;
+        const y=(local.getY(vertex)+local.getY(vertex+1)+local.getY(vertex+2))/3;
+        if(y>.49 || y>.14 && Math.abs(x)>.36 || y>.27 && Math.abs(x)<.14) pigment=part.userData.tankSkin;
+      }
+      colors[i]=pigment.r;
+      colors[i+1]=pigment.g;
+      colors[i+2]=pigment.b;
     }
     geometry.setAttribute('color',new T.BufferAttribute(colors,3));
     return geometry;
@@ -89,12 +98,12 @@ export function character(scene, appearance) {
   const bare=look.shirt==='none';
   const top=bare?skin:look.shirtColor;
   add('cloth',look.legColor,0,.94,0,.44,.25,.29);
-  add('sphere',top,0,1.24,0,.275,.29,.174);
-  if(bare && look.feminine) add('sphere',look.shirtColor,0,1.34,.014,.277,.112,.172);
-  if(look.shirt==='tank') {
-    add('sphere',skin,0,1.47,0,.105,.064,.115);
-    for(const side of [-1,1]) add('sphere',top,side*.174,1.435,0,.103,.066,.137);
+  const torso=add(look.shirt==='tank'?'box':'cloth',top,0,1.25,0,.52,.49,.32);
+  if(look.shirt==='tank'){
+    torso.geometry=tankTorso;
+    torso.userData.tankSkin=new T.Color(skin);
   }
+  if(bare && look.feminine) add('cloth',look.shirtColor,0,1.34,.16,.47,.12,.012);
   if(look.shirt==='dress') {
     add('cloth',shade(top,1.25),0,1.47,.06,.3,.06,.2);
     add('cloth',shade(top,1.18),0,1.25,.158,.05,.4,.012);

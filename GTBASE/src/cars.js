@@ -128,16 +128,22 @@ export function buildCar(scene,model='sedan',color,police=false) {
   cabin.renderOrder=2;
   body.add(cabin);
   // Interior.
-  const hip=Math.min(belt-.395,roof-.98);
+  const hip=Math.min(belt-.26,roof-.99);
   const backHigh=Math.min(.62,roof-belt-.02+ .3);
   for(const [x,z] of spec.seats) {
-    add('box',0x353330,x,hip+.18+backHigh,z-.3,.31,.16,.14);
-    add('box',0x3a3733,x,hip+.12,z,.52,.12,.52);
-    add('box',0x3a3733,x,hip+.12+backHigh/2,z-.3,.5,backHigh,.12);
+    add('cloth',0x353330,x,hip+.06+backHigh,z-.235,.31,.16,.14);
+    add('cloth',0x3a3733,x,hip-.10,z+.12,.51,.14,.54);
+    add('box',0x3a3733,x,hip+backHigh/2,z-.235,.5,backHigh,.13);
   }
   add('box',0x2b2a28,0,belt+.045,b1-.24,W-.26,.14,.34);
   const wheelDriver=add('cylinder',0x1d1d1d,spec.seats[0][0],belt+.07,spec.seats[0][1]+.42,.17,.03,.17);
   wheelDriver.rotation.x=Math.PI/2-.45;
+  add('cloth',0x20262a,0,hip+.02,(b0+b1)*.5,.19,.23,Math.min(1.25,b1-b0));
+  for(const side of [-1,1]){
+    add('box',0x655e56,side*(W/2-.15),(sill+belt)/2,(b0+b1)/2,.08,.085,b1-b0);
+    add('box',0xb65e24,side*(W*.5-.13),belt-.205,half+.006,.12,.064,.032,true);
+    add('box',0xc5bfb0,side*(W*.5-.26),sill-.07,-half-.036,.12,.076,.09,true);
+  }
   // Front and rear faces.
   add('box',0x333539,0,belt-.24,half+.004,W*.44,.14,.05);
   add('box',0xc8bfac,0,sill+.035,half+.006,W*.98,.1,.045,true);
@@ -301,6 +307,12 @@ export function motorcycle(scene,color,variant='street') {
     }
   }
   add('box',0x9f352c,0,.70,axles[0]-.25,.20,.11,.11);
+  for(const side of [-1,1]){
+    const stalk=add('box',0x3a4040,side*.27,1.28,.47,.035,.22,.035);
+    stalk.rotation.z=-side*.40;
+    add('cloth',0x424848,side*.32,1.39,.47,.17,.078,.056);
+    add('box',0xb1763c,side*.19,.76,axles[0]-.17,.11,.073,.08);
+  }
   const handlebar=new T.Group();
   handlebar.position.set(0,.76,.38);
   piece(handlebar,'box',0x3c4242,0,.44,-.09,variant==='chopper'?.84:.684,.057,.059);
@@ -348,12 +360,12 @@ export function seatPerson(person,car,seat) {
   person.shadow.visible=false;
   person.pistol.visible=false;
   if(person.rifle) person.rifle.visible=false;
-  const low=car.spec.roof-car.seatHip<1.0;
+  const low=car.spec.roof-car.seatHip<1.05;
   person.body.position.set(0,0,0);
-  person.body.rotation.set(low?-.3:-.12,0,0);
+  person.body.rotation.set(0,0,0);
   for(let i=0;i<2;i++) {
-    person.legs[i].rotation.set(-1.42,0,(i?1:-1)*.06);
-    person.shins[i].rotation.set(low?.35:.95,0,0);
+    person.legs[i].rotation.set(low?-1.52:-1.44,0,0);
+    person.shins[i].rotation.set(low?1.04:1.26,0,0);
     if(seat===0) {
       person.arms[i].rotation.set(-.62,0,(i?-1:1)*.18);
       person.forearms[i].rotation.set(-.85,0,0);

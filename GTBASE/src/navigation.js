@@ -3,12 +3,12 @@ import { bypass, recoverDriver, safeSpeed, steeringCommand } from './traffic.js'
 import { stepVehicle } from './vehicle.js';
 
 export function footNavigator(solids) {
-  const spacing=2.55, cells=50, edge=(cells-1)*spacing*.5;
-  const nodes=Array.from({length:cells*cells},(_,i)=>({x:(i%cells)*spacing-edge,z:Math.floor(i/cells)*spacing-edge}));
+  const spacing=2.55, cells=50, columns=58, edge=(cells-1)*spacing*.5;
+  const nodes=Array.from({length:columns*cells},(_,i)=>({x:(i%columns)*spacing-edge,z:Math.floor(i/columns)*spacing-edge}));
   const free=nodes.map(node=>clear(node.x,node.z,.38,solids));
   const neighbors=nodes.map((node,here)=>{
     if(!free[here]) return [];
-    const adjacent=[here>=cells?here-cells:-1,here<cells*(cells-1)?here+cells:-1,here%cells?here-1:-1,here%cells<cells-1?here+1:-1];
+    const adjacent=[here>=columns?here-columns:-1,here<columns*(cells-1)?here+columns:-1,here%columns?here-1:-1,here%columns<columns-1?here+1:-1];
     return adjacent.filter(next=>next>=0 && free[next] && clear((node.x+nodes[next].x)*.5,(node.z+nodes[next].z)*.5,.38,solids));
   });
   const directLine=(origin,target)=>{
@@ -24,8 +24,8 @@ export function footNavigator(solids) {
     const ci=Math.round((target.x+edge)/spacing), cj=Math.round((target.z+edge)/spacing);
     const candidates=[];
     for(let j=Math.max(0,cj-4);j<=Math.min(cells-1,cj+4);j++) {
-      for(let i=Math.max(0,ci-4);i<=Math.min(cells-1,ci+4);i++) {
-        const index=j*cells+i;
+      for(let i=Math.max(0,ci-4);i<=Math.min(columns-1,ci+4);i++) {
+        const index=j*columns+i;
         if(!free[index]) continue;
         const dx=nodes[index].x-target.x,dz=nodes[index].z-target.z;
         candidates.push({index,d:dx*dx+dz*dz});
@@ -33,12 +33,13 @@ export function footNavigator(solids) {
     }
     candidates.sort((a,b)=>a.d-b.d);
     for(const {index} of candidates.slice(0,12)) if(directLine(target,nodes[index])) return index;
-    return candidates[0]?.index??-1;
+    return -1;
   };
   let budget=0, stamp=-1;
   const path=(origin,target)=>{
     const start=nearest(origin), finish=nearest(target);
-    if(start<0 || finish<0 || start===finish) return [];
+    if(start<0 || finish<0) return [];
+    if(start===finish) return [nodes[start]];
     const previous=new Int32Array(nodes.length).fill(-1);
     const queue=[start]; previous[start]=start;
     for(let cursor=0;cursor<queue.length;cursor++){
@@ -46,6 +47,7 @@ export function footNavigator(solids) {
       if(here===finish) {
         const result=[];
         for(let node=finish;node!==start;node=previous[node]) result.push(nodes[node]);
+        result.push(nodes[start]);
         return result.reverse();
       }
       for(const next of neighbors[here]) {
@@ -60,7 +62,8 @@ export function footNavigator(solids) {
     const dx=target.x-actor.x,dz=target.z-actor.z;
     const gap=Math.hypot(dx,dz);
     if(gap<.16) return 0;
-    const direct=gap<7 && directLine(actor,target);
+    const direct=gap<12 && directLine(actor,target);
+    if(direct) actor.route=[];
     const now=Math.floor(performance.now()/16);
     if(now!==stamp) {stamp=now;budget=3;}
     if(!direct && actor.repath<=0) {
