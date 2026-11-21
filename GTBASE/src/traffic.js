@@ -1,5 +1,6 @@
 import { clamp, distance, roads } from './rules.js';
 import { resetVehicle, stepVehicle, vehicleClear } from './vehicle.js';
+import { groundHeight } from './contact.js';
 
 const lane = 2.05;
 const corner = 7.15;
@@ -59,7 +60,7 @@ export function resetDriver(car, routeIndex) {
   const at=route[next], prev=route[(next+route.length-1)%route.length];
   const t=.49;
   resetVehicle(car,{x:prev.x+(at.x-prev.x)*t,z:prev.z+(at.z-prev.z)*t,angle:at.angle});
-  car.driver={route,next,cruise:8.7+(routeIndex%4)*1.02,stuck:0,routeIndex};
+  car.driver={route,next,cruise:8.7+(routeIndex%4)*1.02,stuck:0,routeIndex,pass:null};
   car.stolen=false;
   car.abandoned=0;
 }
@@ -124,6 +125,64 @@ export function bypass(car, vehicles, pedestrians, solids) {
   return null;
 }
 
+export function passingPath(car, traffic, crowd, solids) {
+  const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
+  const project=(actor)=>({along:(actor.x-car.x)*sx+(actor.z-car.z)*sz,across:(actor.x-car.x)*sz-(actor.z-car.z)*sx});
+  const possible=[
+    ...traffic.filter(other=>other!==car && Math.hypot(other.vx,other.vz)<6.0),
+    ...crowd.filter(other=>other.health>0 && !other.seated && !other.down)
+  ].map(actor=>({actor,...project(actor)})).filter(({along,across})=>along>3.2 && along<19 && Math.abs(across)<1.73);
+  possible.sort((a,b)=>a.along-b.along);
+  const obstruction=possible[0];
+  if(!obstruction) return null;
+  for(const offset of [2.95,-2.95,3.45,-3.45]) {
+    const end=Math.max(13,obstruction.along+7);
+    const clearLane=[...traffic,...crowd].every(other=>{
+      if(other===car || other===obstruction.actor || other.seated || other.health<=0) return true;
+      const {along,across}=project(other);
+      return along< -3 || along>end+8 || Math.abs(across-offset)>2.28;
+    });
+    const street=[.30,.58,.94].every(scale=>{
+      const along=end*scale;
+      const side=offset*Math.min(1,along/5.6);
+      const x=car.x+sx*along+sz*side,z=car.z+sz*along-sx*side;
+      const tire=car.kind==='bike'?.24:.90;
+      const road=groundHeight(car.x,car.z);
+      return Math.abs(groundHeight(x+sz*tire,z-sx*tire)-road)<.08 &&
+        Math.abs(groundHeight(x-sz*tire,z+sx*tire)-road)<.08 && vehicleClear(x,z,car.angle,solids,car.kind);
+    });
+    if(clearLane && street) return {x:car.x,z:car.z,sx,sz,offset,obstacle:obstruction.actor,phase:'out',age:0,passed:0};
+  }
+  return null;
+}
+
+export function followPass(car, plan, traffic, dt) {
+  plan.age+=dt;
+  const {sx,sz,offset}=plan;
+  const along=(car.x-plan.x)*sx+(car.z-plan.z)*sz;
+  const across=(car.x-plan.x)*sz-(car.z-plan.z)*sx;
+  const blocker=(plan.obstacle.x-plan.x)*sx+(plan.obstacle.z-plan.z)*sz;
+  if(plan.age>13 || (plan.phase==='merge' && Math.abs(across)<.53)) return null;
+  if(plan.phase==='out' && Math.abs(across-offset)<.6) plan.phase='pass';
+  if(plan.phase!=='merge' && along>blocker+5.3) {
+    const clearToMerge=traffic.every(other=>other===car || Math.abs((other.x-plan.x)*sz-(other.z-plan.z)*sx)>2.0 ||
+      Math.abs((other.x-car.x)*sx+(other.z-car.z)*sz)>5.5);
+    if(clearToMerge) plan.phase='merge';
+  }
+  const side=plan.phase==='merge'?0:offset;
+  const hazard=traffic.some(other=>{
+    if(other===car || other===plan.obstacle) return false;
+    const d=(other.x-car.x)*sx+(other.z-car.z)*sz;
+    const lane=(other.x-plan.x)*sz-(other.z-plan.z)*sx;
+    return d>0 && d<7.1 && Math.abs(lane-side)<1.84;
+  });
+  const look=plan.phase==='out'?4.4:7.0;
+  const target={x:plan.x+sx*(along+look)+sz*side,z:plan.z+sz*(along+look)-sx*side};
+  const command=steeringCommand(car,target,hazard?0:plan.phase==='out'?4.8:6.5);
+  if(hazard) command.throttle=0;
+  return command;
+}
+
 export function driveTraffic(cars, active, people, solids, dt, zoneOwners) {
   for(const [key,owner] of zoneOwners) {
     if(!owner.driver || owner.integrity<=0 || distance(owner,owner.driver.route[owner.driver.next].junction)>11) zoneOwners.delete(key);
@@ -152,11 +211,13 @@ export function driveTraffic(cars, active, people, solids, dt, zoneOwners) {
     let desired=point.curve&&proximity<12?Math.min(5.9,driver.cruise):driver.cruise;
     if(owner && owner!==car && proximity<15) desired=Math.min(desired,Math.max(0,proximity-7.4)*.96);
     const normalSpeed=safeSpeed(car,active.vehicles,people,desired);
-    const detour=normalSpeed<desired*.67 && (!point.curve || proximity>12)
-      ?bypass(car,active.vehicles,people,solids):null;
-    desired=detour?Math.min(4.4,desired,Math.max(2,normalSpeed+2.1)):normalSpeed;
-    const command=steeringCommand(car,detour??point,desired);
-    if(desired<.4) command.throttle=0;
+    if(!driver.pass && normalSpeed<desired*.78 && (!point.curve || proximity>11)) {
+      driver.pass=passingPath(car,active.vehicles,people,solids);
+    }
+    const passCommand=driver.pass?followPass(car,driver.pass,active.vehicles,dt):null;
+    if(!passCommand) driver.pass=null;
+    const command=passCommand??steeringCommand(car,point,normalSpeed);
+    if(!passCommand && normalSpeed<.4) command.throttle=0;
     stepVehicle(car,dt,command,solids,active.vehicles);
     driver.stuck=car.speed<.65?driver.stuck+dt:0;
   }

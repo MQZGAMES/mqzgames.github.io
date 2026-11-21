@@ -20,9 +20,10 @@ export function vehicleClear(x,z,angle,solids,kind='car') {
 
 export function vehicleContains(car,x,z,extra=0) {
   const sx=Math.sin(car.angle), sz=Math.cos(car.angle);
-  const {axle,radius}=profile(car.kind);
-  const length=clamp((x-car.x)*sx+(z-car.z)*sz,-axle,axle);
-  return Math.hypot(x-car.x-sx*length,z-car.z-sz*length)<radius+extra;
+  const dx=x-car.x,dz=z-car.z;
+  const width=car.kind==='bike'?.35:.99, length=car.kind==='bike'?1.105:2.135;
+  const across=Math.abs(dx*sz-dz*sx)-width, along=Math.abs(dx*sx+dz*sz)-length;
+  return across<=0 && along<=0 || Math.hypot(Math.max(0,across),Math.max(0,along))<extra;
 }
 
 function contact(car,x,z,angle,vehicles) {

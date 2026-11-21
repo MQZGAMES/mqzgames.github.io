@@ -14,6 +14,14 @@ Jogo 3D original de ação em mundo aberto, ambientado no bairro fictício Vila 
 
 Na cama, use o comando de interação. O navegador mantém vida, saldo, pistola, balas e integrantes recrutados em Vila Brasa. A carga começa no quarto. Trânsito, perseguições e posição dos NPCs são recriados ao abrir o jogo.
 
+## Prompt desta rodada de correções
+
+> Corrija GTBASE mantendo Vila Brasa em exploração livre e os controles de toque, teclado e mouse e Xbox. Refaça a pose da moto com mãos no guidão, quadril apoiado no banco, joelhos dobrados, pés nas pedaleiras e inclinação nas curvas. Ao descer, restaure a postura de caminhada. Apoie cada roda na superfície sob o pneu, corrija a peça extra na janela do cupê e verifique o contato com meio-fio, paredes, objetos, veículos e pedestres.
+>
+> Ajuste corrida, pulo e soco. Permita socar pelo ataque principal com os punhos, aplique reação de impacto e faça veículos em movimento poderem atingir o jogador, com empurrão, queda e dano proporcionais à velocidade. Faça a IA identificar uma faixa livre, completar o desvio ou a ultrapassagem e retornar à rota. Exiba saldo e integrantes da gangue no HUD.
+>
+> Feche o telhado da casa, instale portas e acabamentos e dê à delegacia uma recepção acessível onde os policiais aguardam. Mostre os disparos policiais saindo da arma e seguindo na direção real do alvo. Guarda-costas devem reagir mesmo quando um tiro direcionado ao jogador errar, perder o alvo assim que ele morrer e voltar a defendê-lo se houver nova agressão. Policiais que presenciarem um ataque de aliados revidam contra o atirador. Teste os cenários e publique no catálogo da MQZGames.
+
 ## Desenvolvimento
 
 Execute `npm ci` e `npm run build` neste diretório. Rode `npm run lint`, `npm run typecheck` e `npm test`. Sirva os arquivos estáticos por HTTP. O catálogo usa o bundle `game.js` versionado neste diretório.

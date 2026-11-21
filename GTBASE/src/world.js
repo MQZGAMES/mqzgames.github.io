@@ -162,21 +162,42 @@ export function createWorld(scene) {
 
   const houseRoof=new T.Group();
   scene.add(houseRoof);
+  const doors=[];
+  function hingedDoor(x,z,angle,width,color,base=.228) {
+    const door=new T.Group();
+    door.position.set(x,base,z);
+    door.rotation.y=angle;
+    const panel=piece(door,'box',color,width*.5,1.035,0,width-.035,2.05,.068);
+    panel.castShadow=false;
+    piece(door,'box',0xb29b6c,width-.16,1.05,.057,.12,.075,.035).castShadow=false;
+    piece(door,'box',0xb29b6c,width-.16,1.05,-.057,.12,.075,.035).castShadow=false;
+    scene.add(door);
+    doors.push({door,angle,x:x+Math.cos(angle)*width*.5,z:z-Math.sin(angle)*width*.5});
+    for(const edge of [0,width]) {
+      box(x+Math.cos(angle)*edge,base+1.08,z-Math.sin(angle)*edge,.105,2.16,.18,0x59483a,false,angle);
+    }
+    box(x+Math.cos(angle)*width*.5,base+2.11,z-Math.sin(angle)*width*.5,width+.12,.105,.18,0x59483a,false,angle);
+  }
   function home() {
-    const {x,z}=residence, plaster=0xc4ad88, wallHeight=2.65;
+    const {x,z}=residence, plaster=0xd6be9c, wallHeight=2.65;
     box(x,.17,z,12.1,.09,10.1,0x9d7862);
     box(x-2.8,.218,z,5.3,.017,9.45,0xb29e79);
     box(x+2.9,.218,z+2.2,5.45,.017,4.75,0xc0a582);
     const wall=(dx,dz,w,d)=>blockBox(x+dx,.2+wallHeight/2,z+dz,w,wallHeight,d,plaster);
-    wall(-6,0,.21,10); wall(6,0,.21,10); wall(0,-5,12,.21);
-    wall(-3.38,5,5.24,.21); wall(3.65,5,4.7,.21);
+    wall(-6,0,.22,10.22); wall(6,0,.22,10.22); wall(0,-5,12.10,.23);
+    wall(-3.195,5,5.61,.23); wall(3.415,5,5.17,.23);
     wall(.45,-3.92,.15,2.1); wall(.45,-.69,.15,1.9);
     wall(3.5,.05,4.8,.15); wall(-4.3,-.6,3.45,.15);
     wall(-2.63,-3.92,.15,2.05);
-    box(x+.28,2.55,z+5,2.16,.48,.25,plaster);
+    box(x+.22,2.64,z+5,1.24,.43,.25,plaster);
+    box(x+.45,2.59,z-2.23,.16,.52,1.27,plaster);
+    hingedDoor(x-.39,z+5,0,1.22,0x426559);
+    hingedDoor(x+.45,z-1.64,Math.PI/2,1.22,0x80614c);
+    hingedDoor(x-2.63,z-1.69,Math.PI/2,1.17,0x89705a);
+    box(x-2.63,2.59,z-2.27,.16,.52,1.2,plaster);
     box(x+.28,.11,z+5.9,2.55,.19,1.55,0x9b8b75);
     const furniture=(dx,dz,w,h,d,color)=>blockBox(x+dx,.224+h/2,z+dz,w,h,d,color);
-    furniture(4.0,-3.63,1.46,.40,2.0,0x695044);
+    furniture(4.0,-3.63,1.46,.64,2.0,0x695044);
     box(x+4,.72,z-3.57,1.39,.19,1.95,0x58786f);
     box(x+4,.84,z-4.23,1.10,.13,.41,0xe3d6b9);
     furniture(5.3,-1.20,.96,1.84,1.12,0x75563d);
@@ -192,11 +213,36 @@ export function createWorld(scene) {
     furniture(2.78,2.80,1.15,.40,.68,0x875d3f);
     furniture(-.36,2.98,1.23,.75,1.14,0x8a643e);
     box(x+2.76,.245,z+2.77,2.12,.02,2.0,0xa98568);
-    for(let side of [-1,1]) {
-      const panel=piece(houseRoof,'box',0xa25f43,x+side*3.08,3.5,z,6.54,.16,10.72);
-      panel.rotation.z=-side*.21; panel.castShadow=false;
+    box(x+5.88,1.53,z+2.85,.11,1.16,2.13,0xaf9272);
+    box(x+6.13,1.53,z+2.85,.10,1.02,1.99,0x527171);
+    box(x+6.20,1.53,z+2.85,.08,1.04,.075,0xe0c19e);
+    box(x+6.20,1.54,z+2.85,.08,.075,2.07,0xe0c19e);
+    box(x+6.18,1.01,z+2.85,.23,.10,2.21,0xb59b7e);
+    box(x-3.18,1.57,z+5.16,1.78,1.02,.14,0x617a77);
+    box(x-3.18,1.55,z+5.25,.08,1.06,.10,0xe0c19e);
+    box(x-3.18,1.59,z+5.25,1.83,.07,.10,0xe0c19e);
+    box(x-3.18,1.03,z+5.24,1.95,.11,.24,0xb69879);
+    for(const tx of [-3.6,2.62]) {
+      box(x+tx,2.752,z+1.6,.35,.11,.35,0xf8ddad);
     }
-    facadeText('CASA',x+2.7,2.12,z+5.14,0,0x4a4832,1.55,.45);
+    box(x-3.73,.27,z+5.63,2.18,.09,1.23,0x839065);
+    box(x+3.76,.255,z+5.90,2.15,.09,1.58,0x7e8a60);
+    piece(houseRoof,'box',0xceba9d,x,2.94,z,12.34,.16,10.33).castShadow=false;
+    for(let side of [-1,1]) {
+      const panel=piece(houseRoof,'box',0x92523c,x+side*3.08,3.52,z,6.56,.17,10.78);
+      panel.rotation.z=-side*.205; panel.castShadow=false;
+      for(let tile=-2;tile<=2;tile++) {
+        const seam=piece(houseRoof,'box',0xa26046,x+side*3.08,3.62,z+tile*1.84,6.54,.064,.07);
+        seam.rotation.z=panel.rotation.z;seam.castShadow=false;
+      }
+      const gable=new T.Shape();
+      gable.moveTo(-6.10,2.98);gable.lineTo(6.10,2.98);gable.lineTo(0,4.11);gable.closePath();
+      const end=new T.Mesh(new T.ShapeGeometry(gable),new T.MeshStandardMaterial({color:0xc0a886,side:T.DoubleSide}));
+      end.position.set(x,0,z+side*5.04);
+      houseRoof.add(end);
+    }
+    piece(houseRoof,'box',0x874933,x,4.23,z,.28,.121,10.84).castShadow=false;
+    facadeText('CASA 38',x+2.65,2.27,z+5.125,0,0x4a4832,1.65,.34);
     tree(x-9.5,z-5,true);
     box(x+8.8,.19,z-4,4.2,.08,7.6,0x738457);
   }
@@ -204,7 +250,26 @@ export function createWorld(scene) {
   function policeStation() {
     const y=station.z;
     box(2,.169,y,19,.045,22,0x696b65);
-    blockBox(-7.2,2.19,y,6.7,4.1,20,0x8d9b9b);
+    const blue=0x879799;
+    box(-7.4,.195,y,6.9,.078,19.5,0xb7afa0);
+    blockBox(-10.78,1.67,y,.30,2.96,19.80,blue);
+    for(const end of [-9.77,9.77]) blockBox(-7.1,1.67,y+end,7.6,2.96,.29,blue);
+    for(const end of [-5.51,5.51]) blockBox(-3.62,1.67,y+end,.28,2.96,8.59,blue);
+    box(-3.62,2.73,y,.29,.71,2.46,blue);
+    box(-7.2,3.24,y,7.64,.24,20.08,0x528092);
+    box(-7.2,3.40,y,7.58,.12,20.03,0x456976);
+    hingedDoor(-3.62,y+1.22,Math.PI/2,1.20,0x517486,.22);
+    hingedDoor(-3.62,y-1.21,-Math.PI/2,1.22,0x517486,.22);
+    facadeText('RECEPÇÃO',-3.44,2.63,y,Math.PI/2,0x234653,2.16,.35);
+    for(const offset of [-5.5,5.5]) {
+      blockBox(-9.36,.74,y+offset,1.35,1.04,2.10,0x656963);
+      box(-9.30,1.28,y+offset,1.47,.13,2.20,0xada893);
+      box(-9.42,1.51,y+offset,.44,.44,.62,0x293b42);
+      box(-10.60,1.74,y+offset,.07,1.16,2.8,0xc1c4b0);
+      box(-7.60,3.05,y+offset,1.18,.08,.26,0xffe8b6);
+    }
+    blockBox(-6.82,.70,y-2.1,2.86,1.01,.62,0x6b8585);
+    box(-6.82,1.24,y-2.1,2.99,.12,.77,0xaeaaa0);
     box(-2.5,3.33,y,7.1,.25,19.5,0x526c77,true);
     blockBox(-1.5,1.42,y-9.72,5.4,2.54,.35,0x7d9090);
     blockBox(-1.5,1.42,y+9.72,5.4,2.54,.35,0x7d9090);
@@ -278,14 +343,17 @@ export function createWorld(scene) {
       for(const side of [-1,1]){
         const lx=x+side*12.85, lz=z-side*9.85;
         draw('pole',lx,2.39,lz,.083,4.5,.083,iron,true);
+        solid.push({x:lx,z:lz,w:.17,d:.17,h:4.65});
         box(lx+side*.35,4.52,lz,.79,.075,.075,iron,true);
         box(lx+side*.73,4.48,lz,.32,.12,.19,0xe3b985,true);
         box(x+side*9,.56,z-side*12.5,1.52,.075,.46,0x815846,true);
         box(x+side*9,.78,z-side*12.66,1.52,.23,.075,0x956954,true);
+        solid.push({x:x+side*9,z:z-side*12.50,w:1.52,d:.50,h:.89});
         for(const leg of [-.54,.54]) box(x+side*9+leg,.35,z-side*12.5,.06,.37,.37,iron,true);
         const bx=x+side*10.1;
         draw('pole',bx,.52,z-side*12.55,.24,.69,.24,0x355049,true);
         draw('pole',bx,.88,z-side*12.55,.267,.10,.267,0x263d37,true);
+        solid.push({x:bx,z:z-side*12.55,w:.5,d:.5,h:.94});
         box(bx+.72,.38,z-side*12.58,.09,.39,.09,0x6c6757,true);
         box(bx+.72,.58,z-side*12.58,.13,.08,.13,0xd8a478,true);
       }
@@ -322,5 +390,5 @@ export function createWorld(scene) {
   beacon.position.y=2.8;
   marker.add(beacon);
   scene.add(marker);
-  return {solid,marker,beacon,sun,sky,houseRoof,bed};
+  return {solid,marker,beacon,sun,sky,houseRoof,bed,doors};
 }
