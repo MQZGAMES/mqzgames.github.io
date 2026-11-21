@@ -273,6 +273,7 @@ export function motorcycle(scene,color) {
   bike.root.remove(...wheels);
   wheels.length=0;
   bike.kind='bike';
+  bike.cabin=null;
   bike.root.children[0].scale.set(.42,1.07,1);
   const add=(shape,shade,x,y,z,w,h,d)=>piece(body,shape,shade,x,y,z,w,h,d);
   add('box',0x3b3d3c,0,.48,-.04,.32,.38,.70);
