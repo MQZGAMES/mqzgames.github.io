@@ -363,9 +363,11 @@ export function seatPerson(person,car,seat) {
   const [x,seatZ]=spot;
   const [rearGlass,frontGlass]=car.spec.cabin.top;
   const z=car.spec.open?seatZ:Math.max(rearGlass+.07,Math.min(frontGlass-.03,seatZ));
-  const scale=person.root.scale.y||1;
-  car.root.updateMatrixWorld(true);
-  person.root.position.copy(car.body.localToWorld(seatPoint.set(x,Math.min(car.seatHip,car.spec.roof-1.02*scale)-.94*scale,z)));
+  const cushionTop=car.seatHip-.03;
+  const scale=car.spec.open?person.look.height:Math.min(person.look.height,(car.spec.roof-cushionTop-.035)/1.10);
+  person.root.scale.y=scale;
+  car.body.updateWorldMatrix(true,false);
+  person.root.position.copy(car.body.localToWorld(seatPoint.set(x,cushionTop-.815*scale,z)));
   person.root.quaternion.copy(car.body.getWorldQuaternion(seatTurn));
   person.root.visible=true;
   person.shadow.visible=false;
@@ -373,7 +375,7 @@ export function seatPerson(person,car,seat) {
   if(person.rifle) person.rifle.visible=false;
   const low=car.spec.roof-car.seatHip<1.05;
   person.body.position.set(0,0,0);
-  person.body.rotation.set(-.12,0,0);
+  person.body.rotation.set(0,0,0);
   for(let i=0;i<2;i++) {
     person.legs[i].rotation.set(low?-1.52:-1.44,0,0);
     person.shins[i].rotation.set(low?1.04:1.26,0,0);

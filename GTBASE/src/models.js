@@ -228,6 +228,7 @@ export function character(scene, appearance) {
 }
 
 export function animatePerson(person, dt, speed, aim, gun, punch=0, elevation=0, surrender=false) {
+  person.root.scale.y=person.look.height;
   person.stride += dt * (4.6 + speed * 1.65);
   const swing = Math.sin(person.stride) * Math.min(.78,speed * .15);
   person.body.position.set(0,Math.abs(swing)*.072,0);
@@ -292,6 +293,7 @@ function bendLimb(upper,lower,point,lengthA,lengthB,bend) {
 }
 
 export function ridePerson(person,vehicle) {
+  person.root.scale.y=person.look.height;
   vehicle.root.updateMatrixWorld(true);
   person.root.position.copy(vehicle.body.localToWorld(limbTarget.set(0,.10,-.31)));
   person.root.quaternion.copy(vehicle.body.getWorldQuaternion(limbRotation));

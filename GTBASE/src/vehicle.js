@@ -23,10 +23,33 @@ export function resetVehicle(car, pose) {
   Object.assign(car,pose,{vx:0,vz:0,speed:0,integrity:100,steer:0,impact:0});
 }
 
+const solidBins=new WeakMap();
+const cellSize=12;
+const cellKey=(x,z)=>x*10000+z;
+function localSolids(x,z,solids){
+  if(solids.length<24) return solids;
+  let bins=solidBins.get(solids);
+  if(!bins){
+    bins=new Map();
+    for(const solid of solids){
+      const minX=Math.floor((solid.x-solid.w/2-3.8)/cellSize), maxX=Math.floor((solid.x+solid.w/2+3.8)/cellSize);
+      const minZ=Math.floor((solid.z-solid.d/2-3.8)/cellSize), maxZ=Math.floor((solid.z+solid.d/2+3.8)/cellSize);
+      for(let ix=minX;ix<=maxX;ix++) for(let iz=minZ;iz<=maxZ;iz++){
+        const key=cellKey(ix,iz);
+        if(!bins.has(key)) bins.set(key,[]);
+        bins.get(key).push(solid);
+      }
+    }
+    solidBins.set(solids,bins);
+  }
+  return bins.get(cellKey(Math.floor(x/cellSize),Math.floor(z/cellSize)))??[];
+}
+
 export function vehicleClear(x,z,angle,solids,kind='car') {
   const sx=Math.sin(angle), sz=Math.cos(angle);
   const {offsets,radius}=profile(kind);
-  return offsets.every(offset=>clear(x+sx*offset,z+sz*offset,radius,solids));
+  const nearby=localSolids(x,z,solids);
+  return offsets.every(offset=>clear(x+sx*offset,z+sz*offset,radius,nearby));
 }
 
 export function vehicleContains(car,x,z,extra=0) {
@@ -84,7 +107,10 @@ function takeImpact(car,strength) {
  * @param {{x:number,z:number,w:number,d:number}[]} solids
  * @param {VehicleBody[]} vehicles
  */
-export function stepVehicle(car,dt,command,solids,vehicles) {
+export function stepVehicle(car,dt,command,solids,vehicles,street=null) {
+  const staysOnStreet=!street || street(car.x,car.z,car.angle,shapeOf(car));
+  const fits=(x,z,angle)=>vehicleClear(x,z,angle,solids,shapeOf(car)) &&
+    (!street || !staysOnStreet || street(x,z,angle,shapeOf(car)));
   const {brake}=command;
   const bike=car.kind==='bike';
   const throttle=car.integrity>0?command.throttle:0;
@@ -111,7 +137,7 @@ export function stepVehicle(car,dt,command,solids,vehicles) {
   const pull=flats?((car.flat?.[0]||car.flat?.[2]?1:0)-(car.flat?.[1]||car.flat?.[3]?1:0))*.12:0;
   const steering=(car.steer+pull)*dt*agility*Math.min(1,Math.abs(longitudinal)/2.1)*Math.sign(longitudinal);
   const newAngle=car.angle+steering*(bike?1.26:brake?1.58:1);
-  if(vehicleClear(car.x,car.z,newAngle,solids,shapeOf(car)) && !contact(car,car.x,car.z,newAngle,vehicles)) car.angle=newAngle;
+  if(fits(car.x,car.z,newAngle) && !contact(car,car.x,car.z,newAngle,vehicles)) car.angle=newAngle;
 
   const steps=Math.max(1,Math.ceil(Math.hypot(car.vx,car.vz)*dt/.34));
   const period=dt/steps;
@@ -134,11 +160,11 @@ export function stepVehicle(car,dt,command,solids,vehicles) {
       const oldDistance=Math.hypot(car.x-other.x,car.z-other.z);
       if(Math.hypot(x-other.x,z-other.z)<=oldDistance) break;
     }
-    if(vehicleClear(x,z,car.angle,solids,shapeOf(car))) {
+    if(fits(x,z,car.angle)) {
       car.x=x; car.z=z;
     } else {
-      const alongX=vehicleClear(x,car.z,car.angle,solids,shapeOf(car)) && !contact(car,x,car.z,car.angle,vehicles);
-      const alongZ=vehicleClear(car.x,z,car.angle,solids,shapeOf(car)) && !contact(car,car.x,z,car.angle,vehicles);
+      const alongX=fits(x,car.z,car.angle) && !contact(car,x,car.z,car.angle,vehicles);
+      const alongZ=fits(car.x,z,car.angle) && !contact(car,car.x,z,car.angle,vehicles);
       const impact=Math.hypot(alongX?0:car.vx,alongZ?0:car.vz);
       if(alongX!==alongZ) {
         if(alongX) car.x=x;
@@ -148,7 +174,7 @@ export function stepVehicle(car,dt,command,solids,vehicles) {
       } else {
         car.vx*=-.21; car.vz*=-.21;
       }
-      takeImpact(car,impact || Math.hypot(car.vx,car.vz));
+      if(vehicleClear(x,z,car.angle,solids,shapeOf(car))===false) takeImpact(car,impact || Math.hypot(car.vx,car.vz));
       break;
     }
   }

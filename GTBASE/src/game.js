@@ -6,9 +6,9 @@ import { createStore } from './store.js';
 import { buildCar, carModels, charCar, crackGlass, glassBox, motorcycle, poseCar, seatPerson } from './cars.js';
 import { createFx } from './fx.js';
 import { launch, stepRagdoll } from './ragdoll.js';
-import { lajes, blocks, roads, spawn, weaponShop, station, residence, garage, clamp, clear, distance, move, turn } from './rules.js';
-import { resetVehicle, stepVehicle, vehicleClear } from './vehicle.js';
-import { driveTraffic, positionAvailable, resetDriver, steeringCommand } from './traffic.js';
+import { salvageYard, lajes, blocks, roads, spawn, weaponShop, station, residence, garage, clamp, clear, distance, move, turn } from './rules.js';
+import { resetVehicle, stepVehicle, vehicleClear, vehicleFits } from './vehicle.js';
+import { driveTraffic, positionAvailable, resetDriver, steeringCommand, streetFits } from './traffic.js';
 import { aimShot, canSee, findPunch, reachable, traceImpact, traceShot } from './combat.js';
 import { createShotEffects } from './shot-effects.js';
 import { FIST_CONTACT_DELAY, FIST_DURATION, poseFists } from './fists.js';
@@ -87,14 +87,23 @@ function start() {
   });
   const civilianCars=[...parked,...traffic];
   const intersections=new Map();
+  const footSpawns=[];
   const civilians=Array.from({length:32},(_,i)=>{
     const x=blocks[i%3], z=blocks[Math.floor(i/3)%3];
     const lane=i%2===0?71:85;
     const band=(i%3-1)*20;
     const path=i>=24?[{x:lane,z:band-10},{x:lane,z:band+10},{x:lane+7,z:band+10},{x:lane+7,z:band-10}]:[{x:x+12,z:z-12},{x:x+12,z:z+12},{x:x-12,z:z+12},{x:x-12,z:z-12}];
-    const point=i%4,a=path[point],b=path[(point+1)%4];
-    const f=(i%3+1)/4;
-    const home={x:a.x+(b.x-a.x)*f,z:a.z+(b.z-a.z)*f,next:(point+1)%4};
+    const preferred=(i*3+Math.floor(i/9))%4;
+    let home;
+    for(let step=0;step<36 && !home;step++){
+      const point=(preferred+step%4)%4,a=path[point],b=path[(point+1)%4];
+      const f=.10+Math.floor(step/4)*.10;
+      const spot={x:a.x+(b.x-a.x)*f,z:a.z+(b.z-a.z)*f,next:(point+1)%4};
+      if(clear(spot.x,spot.z,.46,world.walkSolids(spot.x,spot.z,0)) &&
+        footSpawns.every(other=>distance(spot,other)>11.7)) home=spot;
+    }
+    home??={...path[preferred],next:(preferred+1)%4};
+    footSpawns.push(home);
     return actorAt({...home,id:'street:'+i},'civilian',character(scene,randomLook(1000+i)),path);
   });
   const clerks=world.buildings.filter(building=>building.clerk).map((building,i)=>actorAt({
@@ -111,8 +120,8 @@ function start() {
       route:[3,6,1][i],beat:i,startShift:[18,40,26][i]};
   });
   const towTruck=buildCar(scene,'tow',0xc59b43);
-  const salvage={x:42,z:60.6,angle:Math.PI/2};
-  const tow={car:towTruck,target:null,carrying:false,stop:null,stall:0,wait:0};
+  const towHome={x:salvageYard.bay.x,z:salvageYard.bay.z-4,angle:Math.PI};
+  const tow={car:towTruck,target:null,hitch:null,carrying:false,unload:0,stop:null,stall:0,wait:0};
   const cars=[...civilianCars,...police.map(unit=>unit.car),towTruck];
   const vehicleStarts=new Map();
   const ejected=Array.from({length:traffic.length+2},(_,i)=>{
@@ -318,8 +327,8 @@ function start() {
       car.body.rotation.z=0;
       poseCar(car,0);
     });
-    resetVehicle(towTruck,salvage);
-    Object.assign(tow,{target:null,carrying:false,wait:0,stop:null,maneuver:null,stall:0});
+    resetVehicle(towTruck,towHome);
+    Object.assign(tow,{target:null,hitch:null,carrying:false,unload:0,wait:0,stop:null,maneuver:null,stall:0});
     intersections.clear();
     traffic.forEach((car,index)=>{resetDriver(car,car.routeIndex,index>=8?3:0);poseCar(car,0);});
     for(const unit of police) {
@@ -1152,7 +1161,7 @@ function start() {
     const hit=car.bumpedVehicle;
     if(hit && traffic.includes(hit) && hit.driver && (hit.lastProvoked??-100)<introTime-20){
       hit.lastProvoked=introTime;
-      if(Math.random()<.12 && Math.abs(hit.speed)<4 && hit.kind==='car'){
+      if(Math.random()<.035 && Math.abs(hit.speed)<2.2 && hit.kind==='car'){
         const driver=carDriver(hit);
         if(driver && ejectOccupant(hit,0,player)){driver.brawl=8;driver.fear=0;}
       }
@@ -1536,51 +1545,69 @@ function start() {
       :{x:car.x,z:roadZ+(car.z>=roadZ?4.4:-4.4)};
   }
 
-  function updateTow(dt,actor) {
+  function updateTow(dt){
     tow.wait-=dt;
     if(!tow.target && tow.wait<=0){
       tow.wait=1;
-      tow.target=civilianCars.find(car=>car.kind==='car' && car!==driving && !car.driver && !car.burning &&
+      const candidates=civilianCars.filter(car=>car.kind==='car' && car!==driving && !car.driver && !car.burning &&
         !car.towed && !car.shopping && !escorts.has(car) && (car.wrecked || car.abandoned>18 && car.leftInLane));
-      Object.assign(tow,{stop:null,maneuver:null,stall:0});
+      candidates.sort((a,b)=>distance(a,towTruck)-distance(b,towTruck));
+      for(const target of candidates){
+        const spacing=target.halfLength+towTruck.halfLength+.14;
+        const fleet=cars.filter(car=>car!==towTruck && car!==target);
+        const anchors=[1,-1].map(side=>({
+          x:target.x+Math.sin(target.angle)*spacing*side,z:target.z+Math.cos(target.angle)*spacing*side,
+          angle:target.angle+(side<0?Math.PI:0)
+        })).filter(anchor=>vehicleFits({...anchor,kind:'car',shape:towTruck.shape},vehicleSolids,fleet));
+        anchors.sort((a,b)=>distance(a,towTruck)-distance(b,towTruck));
+        if(!anchors.length) continue;
+        Object.assign(tow,{target,hitch:anchors[0],stop:null,maneuver:null,stall:0});break;
+      }
     }
     const target=tow.target;
     if(!target) return;
-    if(target===driving || target.driver || target.burning){tow.target=null;tow.carrying=false;return;}
-    const destination=tow.carrying?salvage:target;
-    const gap=distance(towTruck,destination);
-    if(tow.carrying && gap<4.5){
-      target.towed=true;target.root.visible=false;target.x=480;target.z=480;target.abandoned=0;
-      tow.target=null;tow.carrying=false;tow.wait=3;
+    if(target===driving || target.driver || target.burning || target.towed){
+      Object.assign(tow,{target:null,hitch:null,carrying:false,unload:0});return;
+    }
+    if(tow.unload>0){
+      tow.unload-=dt;
+      if(tow.unload<=0){
+        target.towed=true;target.root.visible=false;target.x=480;target.z=480;target.abandoned=0;
+        Object.assign(tow,{target:null,hitch:null,carrying:false,unload:0,wait:2.5,stop:null});
+      }
       return;
     }
     const fleet=cars.filter(car=>car!==target);
-    if(!tow.carrying && gap<6 && Math.abs(target.speed)<.65){
+    const gap=distance(towTruck,tow.hitch);
+    if(!tow.carrying && gap<2.2 && Math.abs(target.speed)<.7){
       tow.carrying=true;tow.stop=null;tow.maneuver=null;tow.stall=0;
     }
-    if(gap<15 || destination.x>62 || towTruck.x>62){
-      stepVehicle(towTruck,dt,steeringCommand(towTruck,destination,Math.min(5,gap*.53)),vehicleSolids,fleet);
+    const {approach,gate,bay}=salvageYard;
+    const onDriveway=towTruck.z>57 && Math.abs(towTruck.x-gate.x)<3.4;
+    if(tow.carrying && towTruck.z>bay.z-1.2 && onDriveway){
+      towTruck.speed=towTruck.vx=towTruck.vz=0;
+      target.speed=target.vx=target.vz=0;tow.unload=2.5;return;
+    }
+    const destination=tow.carrying?(onDriveway || distance(towTruck,approach)<4?bay:approach):
+      towTruck.z>60.2?approach:tow.hitch;
+    const gapToGoal=distance(towTruck,destination);
+    if(gapToGoal<15 || towTruck.z>60 || destination.x>62){
+      const command=steeringCommand(towTruck,destination,Math.min(tow.carrying?5.0:7.5,gapToGoal*.85));
+      stepVehicle(towTruck,dt,command,vehicleSolids,fleet);
     } else patrolDrive(tow,destination,vehicleSolids,fleet,activePeople,dt);
     if(tow.carrying){
-      const spacing=target.halfLength+towTruck.halfLength+.1;
-      target.x=towTruck.x-Math.sin(towTruck.angle)*spacing;
-      target.z=towTruck.z-Math.cos(towTruck.angle)*spacing;
-      target.angle=towTruck.angle;target.speed=target.vx=target.vz=0;
-    } else if(police.some(unit=>distance(unit.officer.seated?unit.car:unit.officer,target)<9)){
-      const curb=roadParking(target);
-      if(curb){
-        const factor=Math.min(1,dt*1.3/distance(target,curb));
-        const x=target.x+(curb.x-target.x)*factor,z=target.z+(curb.z-target.z)*factor;
-        if(vehicleClear(x,z,target.angle,vehicleSolids,target.shape) &&
-          fleet.every(car=>car===towTruck || distance(car,{x,z})>3.1) && distance(actor,{x,z})>2) Object.assign(target,{x,z});
-      }
+      const spacing=target.halfLength+towTruck.halfLength+.14;
+      const angle=Math.atan2(towTruck.x-target.x,towTruck.z-target.z);
+      const x=towTruck.x-Math.sin(angle)*spacing,z=towTruck.z-Math.cos(angle)*spacing;
+      if(vehicleClear(x,z,angle,vehicleSolids,target.shape)) Object.assign(target,{x,z,angle});
+      target.speed=target.vx=target.vz=0;
     }
   }
 
   function updateVehicles(dt,actor) {
     for(const car of parked) if(car!==driving && car.stolen && !car.towed) car.abandoned+=dt;
-    updateTow(dt,actor);
-    const active={player:driving,vehicles:vehicleList()};
+    updateTow(dt);
+    const active={player:driving,vehicles:vehicleList(),keepToStreet:true};
     const patrolCars=police.filter(unit=>unit.mode==='patrol').map(unit=>unit.car);
     for(const [car,unit] of escorts){
       if(!driving || car.wrecked || car.burning){for(const npc of [...car.passengers]) unseat(npc);escorts.delete(car);continue;}
@@ -1588,11 +1615,11 @@ function start() {
       if(distance(car,driving)>8) patrolDrive(unit,driving,vehicleSolids,cars,activePeople.filter(npc=>!npc.seated),dt);
       else stepVehicle(car,dt,{throttle:0,steer:0,brake:true},vehicleSolids,cars);
     }
-    driveTraffic([...traffic.filter(car=>!escorts.has(car) && !car.shopping),...patrolCars],active,activePeople,vehicleSolids,dt,intersections,world.signals);
+    driveTraffic([...traffic.filter(car=>!escorts.has(car) && !car.shopping && !car.towed && !(tow.carrying && tow.target===car)),...patrolCars],active,activePeople,vehicleSolids,dt,intersections,world.signals);
     parked.forEach((car,index)=>{
       if(car.towed) {
         const {x,z,angle}=[...carSpawns,...bikeSpawns][index];
-        if(distance(actor,{x,z})>40) {resetVehicle(car,{x,z,angle});car.stolen=false;car.towed=false;car.root.visible=true;}
+        if(distance(actor,{x,z})>40 && positionAvailable({...car,x,z,angle},active.vehicles.filter(other=>other!==car),actor,vehicleSolids)) {resetVehicle(car,{x,z,angle});car.stolen=false;car.towed=false;car.root.visible=true;}
       }
     });
     for(const car of parked) {
@@ -1605,10 +1632,10 @@ function start() {
       if(car.routeIndex>=0 && car!==driving && !escorts.has(car) && !car.shopping && !(tow.carrying && tow.target===car)) {
         car.abandoned+=dt;
         const needsReturn=car.towed && car.abandoned>12;
-        const broken=(car.driver?.stuck??0)>13;
+        const broken=(car.driver?.stuck??0)>24;
         if((needsReturn || broken) && !car.burning && distance(actor,car)>17) {
           const next={};
-          resetDriver(next,car.routeIndex);
+          resetDriver(next,car.routeIndex,Math.floor(introTime)%7);
           next.kind=car.kind;next.shape=car.shape;
           if(positionAvailable(next,active.vehicles.filter(other=>other!==car),actor,vehicleSolids)) {
             Object.assign(car,next,{towed:false});car.root.visible=true;
@@ -1623,6 +1650,7 @@ function start() {
         audio.crash();
         impactCooldown=.32;
       }
+      if(car.towed) continue;
       poseCar(car,dt,car.steer);
       if(car.rider) {
         car.rider.root.visible=Boolean(car.driver)&&car.integrity>0;
@@ -1782,16 +1810,17 @@ function start() {
       if(activePeople.some(npc=>npc.buyer?.seller===seller)) continue;
       const visitor=traffic.find(car=>car.kind==='car' && car.driver && car.ownDriver?.seated && !escorts.has(car) && !car.burning &&
         Math.abs(car.speed)<2 && distance(car,seller)<26 && (car.visitTime??-100)<introTime-65);
-      if(visitor && Math.random()<.5){
+      if(visitor && Math.random()<.12){
         const sx=Math.cos(visitor.angle),sz=-Math.sin(visitor.angle);
         const parking=[-1,1].map(side=>({x:visitor.x+sx*side*2.4,z:visitor.z+sz*side*2.4}))
-          .find(pt=>vehicleClear(pt.x,pt.z,visitor.angle,vehicleSolids,visitor.shape) && cars.every(other=>other===visitor || distance(other,pt)>4.8));
-        if(!parking) continue;
-        Object.assign(visitor,parking);
-        const driver=visitor.ownDriver,route=visitor.driver;
-        if(ejectOccupant(visitor,0,seller)){
-          visitor.shopping=true;visitor.visitTime=introTime;visitor.speed=visitor.vx=visitor.vz=0;
-          driver.shoppingTrip={car:visitor,route};driver.fear=0;driver.buyer={seller,wait:0};continue;
+          .find(pt=>streetFits(pt.x,pt.z,visitor.angle,visitor.shape) && vehicleFits({...pt,angle:visitor.angle,kind:visitor.kind,shape:visitor.shape},vehicleSolids,cars.filter(other=>other!==visitor)));
+        if(parking){
+          Object.assign(visitor,parking);
+          const driver=visitor.ownDriver,route=visitor.driver;
+          if(ejectOccupant(visitor,0,seller)){
+            visitor.shopping=true;visitor.visitTime=introTime;visitor.speed=visitor.vx=visitor.vz=0;
+            driver.shoppingTrip={car:visitor,route};driver.fear=0;driver.buyer={seller,wait:0};continue;
+          }
         }
       }
       const buyer=activePeople.find(npc=>npc.role==='civilian' && living(npc) && npc.fear<=0 && !npc.buyer && !npc.calling &&
@@ -1925,6 +1954,7 @@ function start() {
       npc.role==='ally' || npc.role==='police' || npc===gangTarget);
     const liveSet=new Set(activePeople);
     for(const npc of pedestrians) npc.model.root.visible=liveSet.has(npc)&&!npc.seated;
+    const walkCrowd=driving?activePeople:[...activePeople,player];
     const previous=new Map(activePeople.map(npc=>[npc,{x:npc.x,z:npc.z}]));
     if(!preview) updatePolice(dt,actor);
     for(const npc of activePeople) {
@@ -1956,7 +1986,9 @@ function start() {
           npc.drop.rotation.z=npc.angle;
           npc.drop.scale.set(Math.max(.38,growth),Math.max(.24,growth*.68),1);
         }
-        if(npc.role!=='police' && npc.down<=0 && distance(npc.home,actor)>7 && distance(npc,actor)>7) {
+        if(npc.role!=='police' && npc.down<=0 && distance(npc.home,actor)>10 && distance(npc,actor)>10 &&
+          activePeople.every(other=>other===npc || !living(other) || distance(other,npc.home)>1.55) &&
+          actorClear(npc,npc.home.x,npc.home.z,world.walkSolids(npc.home.x,npc.home.z,0),cars,[],.42)) {
           resetActor(npc);
           if(ejected.includes(npc)) {npc.seated=true;npc.model.root.visible=false;}
         }
@@ -2025,14 +2057,14 @@ function start() {
         }
       }
       const old=previous.get(npc);
-      if(old && npc.exitAnim<=0) {
+      if(old && npc.exitAnim<=0 && (npc.walkIntent || npc.x!==old.x || npc.z!==old.z || Math.abs(npc.pushX)+Math.abs(npc.pushZ)>.015)) {
         const dx=npc.x-old.x+npc.pushX*dt,dz=npc.z-old.z+npc.pushZ*dt;
         npc.x=old.x;npc.z=old.z;
         const occupants=unit?.mode==='boarding'?cars.filter(car=>car!==unit.car):cars;
         // Gang members heading for a seat can brush past each other instead of locking at the bumper.
-        const crowd=npc.boardCar?activePeople.filter(other=>other.role!=='ally'):activePeople;
+        const crowd=walkCrowd.filter(other=>other!==npc && distance(other,old)<3.6 && (!npc.boardCar || other.role!=='ally'));
         const moved=moveActor(npc,dx,dz,walkGeometry(npc),actorGround(npc)>1.25?[]:occupants,
-          [...crowd,...(driving?[]:[player])],.29);
+          crowd,.29);
         if(speed>0 && moved<speed*dt*.55){
           const heading=Math.atan2(dx,dz), sign=npc.detourSide??(npc.home.x<0?-1:1);
           const local=walkGeometry(npc), nearby=crowd.filter(other=>distance(other,npc)<4);
@@ -2224,6 +2256,7 @@ function start() {
     if(waypoint){if(distance(actor,waypoint)<2.2){waypoint=null;pin.visible=false;}else dot(waypoint,'#ffad41',4);}
     for(const car of civilianCars) if(car!==driving && car.integrity>0) dot(car,car.driver?'#82b9b3':'#eab987',car.kind==='bike'?2.2:car.driver?2.6:3.5);
     dot(weaponShop,'#eaff89',6);
+    dot(salvageYard.bay,'#d1ad62',3.5);
     dot(lajes.home,'#ffe4aa',4);
     dot(residence,'#dcc39b',5);
     for(const building of publicShops) if(building.service==='black') dot(building.entry,'#c58cff',3.2);

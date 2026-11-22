@@ -1,5 +1,6 @@
 export const halfWorld = 65;
 export const lajes={west:62,east:106,halfDepth:48,home:{x:96,z:41.52}};
+export const salvageYard={west:39,east:65,north:63,south:87,gate:{x:55,z:64},bay:{x:55,z:76},approach:{x:55,z:57}};
 export const roads = [-57, -19, 19, 57];
 export const blocks = [-38, 0, 38];
 export const spawn = { x: 11.7, z: 3.2 };
@@ -13,7 +14,10 @@ export const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 export function clear(x, z, radius, solids) {
-  return (Math.abs(x) + radius < halfWorld || x>lajes.west && x+radius<lajes.east && Math.abs(z)+radius<lajes.halfDepth) && Math.abs(z) + radius < halfWorld &&
+  const inCity=Math.abs(x)+radius<halfWorld && Math.abs(z)+radius<halfWorld;
+  const inLajes=x>lajes.west && x+radius<lajes.east && Math.abs(z)+radius<lajes.halfDepth;
+  const inYard=x-radius>salvageYard.west && x+radius<salvageYard.east && z>salvageYard.north && z+radius<salvageYard.south;
+  return (inCity || inLajes || inYard) &&
     solids.every(box => {
       if (box.off) return true;
       const dx = x - clamp(x, box.x - box.w / 2, box.x + box.w / 2);

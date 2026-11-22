@@ -32,3 +32,9 @@ test('pedestrians route around a wall in Vila das Lajes',async()=>{
   assert.ok(actor.route.length>1);
   assert.ok(actor.route.some(point=>Math.abs(point.z-35)>2.5));
 });
+
+test('the salvage lot extends beyond the road only within its own boundary',()=>{
+  assert.equal(clear(55,76,1,[]),true);
+  assert.equal(clear(35,76,1,[]),false);
+  assert.equal(clear(55,87,1,[]),false);
+});

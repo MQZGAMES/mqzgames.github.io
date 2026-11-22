@@ -3,6 +3,18 @@ import { resetVehicle, stepVehicle, vehicleClear, vehicleContains, vehicleExtent
 import { groundHeight } from './contact.js';
 
 const lane = 2.05;
+const roadHalfWidth=5.37;
+const nearestRoad=value=>Math.min(Math.abs(value+57),Math.abs(value+19),Math.abs(value-19),Math.abs(value-57));
+export function streetFits(x,z,angle,shape){
+  const {width,length}=vehicleExtent(shape);
+  const sx=Math.sin(angle),sz=Math.cos(angle);
+  for(const end of [-1,1]) for(const side of [-1,1]){
+    const px=x+sx*(length-.26)*end+sz*(width-.09)*side;
+    const pz=z+sz*(length-.26)*end-sx*(width-.09)*side;
+    if(Math.min(nearestRoad(px),nearestRoad(pz))>roadHalfWidth || Math.max(Math.abs(px),Math.abs(pz))>62.45) return false;
+  }
+  return true;
+}
 const corner = 7.15;
 
 function makeRoute(nodes) {
@@ -160,7 +172,7 @@ export function passingPath(car, traffic, crowd, solids) {
     if(!clearLane) continue;
     const shiftBy=Math.max(bike?2.4:3.8,Math.min(bike?5.0:6.1,obstruction.along-own.length+1.2));
     const road=groundHeight(car.x,car.z);
-    const samples=Math.ceil(end/.72);
+    const samples=Math.ceil(end/(bike?.72:.92));
     let street=true;
     for(let i=1;i<=samples;i++) {
       const along=i*end/samples;
@@ -221,6 +233,7 @@ export function followPass(car, plan, traffic, dt, pedestrians=[]) {
 }
 
 function maneuverClear(car, probe, vehicles, crowd, solids) {
+  if(car.driver?.cityTraffic && !streetFits(probe.x,probe.z,probe.angle,car.shape??car.kind)) return false;
   return vehicleFits(probe,solids,vehicles,car) && crowd.every(person=>
     person.health<=0 || person.seated || person.down || !vehicleContains(probe,person.x,person.z,.26));
 }
@@ -290,7 +303,7 @@ export function recoverDriver(car,state,goal,vehicles,crowd,solids,dt,normal,all
     return {steer:active.steer,throttle:car.speed> -active.pace?clamp((car.speed+active.pace)*-.64,-.54,-.05):0,brake:false};
   }
   state.recoverWait=!allow || moving || distance(car,goal)<1.2?0:(state.recoverWait??0)+dt;
-  const patience=bike?1.08:1.75;
+  const patience=bike?1.08:1.45;
   if(state.recoverRetry>0 || state.recoverWait<patience || car.integrity<=0) return normal;
   state.maneuver=planReverse(car,goal,vehicles,crowd,solids);
   if(!state.maneuver) {
@@ -318,6 +331,10 @@ export function driveTraffic(cars, active, people, solids, dt, zoneOwners, signa
       continue;
     }
     const {route}=driver;
+    const pavement=active.keepToStreet?streetFits:null;
+    driver.cityTraffic=Boolean(pavement);
+    driver.passRetry=(driver.passRetry??0)-dt;
+    driver.detourRetry=Math.max(0,(driver.detourRetry??0)-dt);
     const bike=car.kind==='bike';
     let point=route[driver.next];
     const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
@@ -330,9 +347,9 @@ export function driveTraffic(cars, active, people, solids, dt, zoneOwners, signa
     const {junction}=point;
     const proximity=distance(car,junction);
     const owner=zoneOwners.get(junction.id);
-    if(!owner && proximity<9.7) zoneOwners.set(junction.id,car);
+    if(!owner && proximity<7.1) zoneOwners.set(junction.id,car);
     const cruise=driver.cruise*(bike?1.13:1);
-    let desired=point.curve&&proximity<12?Math.min(bike?7.1:5.9,cruise):cruise;
+    let desired=point.curve&&proximity<12?Math.min(bike?5.9:4.7,cruise):cruise;
     const yielding=owner && owner!==car && proximity<15;
     if(yielding) desired=Math.min(desired,Math.max(0,proximity-7.4)*.96);
     // Traffic lights: stop before the crosswalk on red, and on yellow when there is room to brake.
@@ -350,19 +367,44 @@ export function driveTraffic(cars, active, people, solids, dt, zoneOwners, signa
       }
     }
     const normalSpeed=safeSpeed(car,active.vehicles,people,desired);
-    if(!driver.pass && !driver.maneuver && !yielding && !signalHold && normalSpeed<desired*(bike?.88:.78) && (!point.curve || proximity>(bike?8:11))) {
+    if(driver.passRetry<=0 && !driver.pass && !driver.maneuver && !yielding && !signalHold && normalSpeed<desired*(bike?.88:.78) && (!point.curve || proximity>(bike?8:11))) {
       driver.pass=passingPath(car,active.vehicles,people,solids);
+      driver.passRetry=driver.pass?.age??(bike?.10:.55+(driver.routeIndex%4)*.13);
     }
     const passCommand=driver.pass?followPass(car,driver.pass,active.vehicles,dt,people):null;
     if(!passCommand) driver.pass=null;
     const normal=passCommand??steeringCommand(car,point,normalSpeed);
     if(!passCommand && normalSpeed<.4) normal.throttle=0;
     const x=car.x,z=car.z;
-    const command=recoverDriver(car,driver,point,active.vehicles,people,solids,dt,normal,!(yielding || signalHold) || driver.stuck>12);
+    if(pavement && driver.stuck>5 && !signalHold && !yielding && !driver.maneuver && driver.detourRetry===0){
+      driver.detourRetry=6;
+      const alternative=findDetour(car,point);
+      if(alternative){
+        driver.route=alternative.route;driver.next=alternative.index;
+        driver.pass=null;driver.recoverWait=0;driver.stuck=0;
+      }
+    }
+    const command=recoverDriver(car,driver,point,active.vehicles,people,solids,dt,normal,!signalHold && !yielding);
     if(driver.maneuver) driver.pass=null;
-    stepVehicle(car,dt,command,solids,active.vehicles);
-    driver.stuck=!signalHold && Math.hypot(car.x-x,car.z-z)<dt*.62?driver.stuck+dt:signalHold?driver.stuck:0;
+    stepVehicle(car,dt,command,solids,active.vehicles,pavement);
+    driver.stuck=!signalHold && Math.hypot(car.x-x,car.z-z)<dt*.62?driver.stuck+dt:signalHold?driver.stuck:Math.max(0,driver.stuck-dt*2);
   }
+}
+
+function findDetour(car,current){
+  if(distance(car,current.junction)>15) return null;
+  const sx=Math.sin(car.angle),sz=Math.cos(car.angle);
+  let best=null,score=Infinity;
+  for(const route of trafficRoutes) for(let index=0;index<route.length;index++){
+    const point=route[index],after=route[(index+3)%route.length];
+    if(point.junction.id!==current.junction.id || distance(after,current)<4) continue;
+    const dx=point.x-car.x,dz=point.z-car.z;
+    const gap=Math.hypot(dx,dz);
+    if(gap<3 || gap>13 || dx*sx+dz*sz<0 || distance(after,current)<distance(point,current)) continue;
+    const candidate=gap+Math.abs(dx*sz-dz*sx)*1.5;
+    if(candidate<score){score=candidate;best={route,index};}
+  }
+  return best;
 }
 
 export function positionAvailable(car, vehicles, observer, solids) {

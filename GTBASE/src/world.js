@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { lajes, blocks, roads, station, residence, bed } from './rules.js';
+import { salvageYard, lajes, blocks, roads, station, residence, bed } from './rules.js';
 import { piece } from './models.js';
 import { groundHeight } from './contact.js';
 import { addDistrictBuilding } from './district-buildings.js';
@@ -335,11 +335,18 @@ export function createWorld(scene) {
   box(96.4,.9,38.65,1.64,.07,.61,0xc0c4b5);
   box(100,.38,38.1,.59,.75,.63,0xe4dccb);
   box(99.1,.84,38.16,.62,.14,.44,0xd6cab5);
-  // Fenced vehicle salvage lot beside the southern perimeter road.
-  box(42,.005,61,18,.018,7,0x736e63);
-  blockBox(43,.8,64,17,1.6,.16,0x67655b);
-  blockBox(50,.8,61,.16,1.6,6,0x67655b);
-  facadeText('FERRO-VELHO',44,2.3,63.83,Math.PI,0x315453,4.3,.55);
+  // South of the ring road, with a dedicated driveway and unloading bays.
+  const lot=salvageYard;
+  const center=(lot.west+lot.east)/2;
+  box(center,.005,75,25.8,.014,24,0x736e63);
+  box(lot.gate.x,.004,62.2,7.5,.015,4.8,0x736e63);
+  for(const x of [lot.west+.3,lot.east-.3]) blockBox(x,.8,75,.24,1.6,24,0x67655b);
+  blockBox(center,.8,86.72,25.6,1.6,.24,0x67655b);
+  blockBox(45.3,.8,63,12.4,1.6,.22,0x67655b);
+  blockBox(62,.8,63,5.6,1.6,.22,0x67655b);
+  box(43.8,1.55,66.6,5,3.1,4,0xa99c85);
+  facadeText('FERRO-VELHO',43.8,2.5,64.56,Math.PI,0x315453,4.3,.55);
+  for(let x=42;x<=62;x+=3.2) box(x,.015,81,.045,.012,5,0xb7a575);
   for(let i=0;i<52;i++){
     const angle=i/52*Math.PI*2;
     const radius=118+random()*58;
