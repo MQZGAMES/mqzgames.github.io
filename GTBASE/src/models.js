@@ -4,7 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { defaultLook, metals } from './looks.js';
 
 const box = new T.BoxGeometry();
-const tankTorso = new T.BoxGeometry(1,1,1,10,8,2).toNonIndexed();
+const tankTorso = new RoundedBoxGeometry(1,1,1,4,.23);
 const cloth = new RoundedBoxGeometry(1,1,1,2,.29);
 const sphere = new T.SphereGeometry(1, 10, 7);
 const cylinder = new T.CylinderGeometry(1, 1, 1, 12);
@@ -240,7 +240,6 @@ export function animatePerson(person, dt, speed, aim, gun, punch=0, elevation=0,
   const longGun=gun && person.weapon==='rifle';
   person.arms[0].rotation.set(aim?-Math.PI/2+elevation:-swing*.76,0,0);
   person.arms[1].rotation.set(aim?(longGun?-Math.PI/2+elevation+.12:-1.16):swing*.76,0,aim&&longGun?.42:0);
-  if(aim && longGun) person.forearms[1].rotation.set(-.35,0,0);
   person.arms[0].rotation.z=surrender?-.25:0;
   if(surrender || !(aim && longGun)) person.arms[1].rotation.z=surrender?.25:0;
   if(surrender) person.arms[0].rotation.x=person.arms[1].rotation.x=-2.55;
@@ -252,13 +251,32 @@ export function animatePerson(person, dt, speed, aim, gun, punch=0, elevation=0,
     person.body.rotation.y=-extension*.37;
   } else person.body.rotation.y=0;
   person.pistol.visible = gun && person.weapon!=='rifle';
-  if(person.rifle) person.rifle.visible = gun && person.weapon==='rifle';
+  if(person.rifle){
+    person.rifle.visible=longGun;
+    if(aim && longGun && !surrender && punch<=0){
+      const rifle=person.rifle;
+      if(rifle.parent!==person.body) person.body.add(rifle);
+      rifle.position.set(.018,1.30,.19);
+      rifle.rotation.set(-Math.PI/2+elevation,0,0);
+      const right=pointOnRifle(rifle,0,.01,0);
+      bendLimb(person.arms[0],person.forearms[0],right,.23,.227,[-.65,-1,0]);
+      const left=pointOnRifle(rifle,0,-.14,-.032);
+      bendLimb(person.arms[1],person.forearms[1],left,.23,.227,[.65,-1,0]);
+    } else if(person.rifle.parent!==person.forearms[0]){
+      person.forearms[0].add(person.rifle);
+      person.rifle.position.set(0,-.227,.03);
+      person.rifle.rotation.set(0,0,0);
+    }
+  }
 }
 
 const downAxis=new T.Vector3(0,-1,0);
 const aimJoint=new T.Vector3(), aimDirection=new T.Vector3(), aimHint=new T.Vector3();
 const limbTarget=new T.Vector3(), limbVector=new T.Vector3();
 const limbRotation=new T.Quaternion();
+function pointOnRifle(rifle,x,y,z){
+  return limbTarget.set(x,y,z).applyEuler(rifle.rotation).add(rifle.position);
+}
 function bendLimb(upper,lower,point,lengthA,lengthB,bend) {
   aimDirection.subVectors(point,upper.position);
   const distance=Math.min(lengthA+lengthB-.001,Math.max(.015,aimDirection.length()));

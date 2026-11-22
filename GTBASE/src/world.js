@@ -292,14 +292,14 @@ export function createWorld(scene) {
   }
   // Low-rise masonry homes open onto pedestrian alleys east of the perimeter road.
   // The signed entrance spans the central alley, leaving the passage clear.
-  for(const side of [-1,1]) blockBox(63.6,1.85,side*1.7,.15,3.7,.15,0x705747);
-  box(63.6,3.48,0,.16,.64,3.65,0x705747);
+  for(const side of [-1,1]) blockBox(63.6,1.85,side*2.5,.15,3.7,.15,0x705747);
+  box(63.6,3.48,0,.16,.64,5.15,0x705747);
   facadeText('VILA DAS LAJES',63.51,3.48,0,-Math.PI/2,0x315453,3.55,.56);
-  box(73,-.055,0,22,.1,lajes.halfDepth*2,0x998d7d);
-  for(const x of [63.45,71,78]) box(x,-.003,0,2.4,.012,94,0x9e9689);
-  for(const z of [-30,-20,-10,0,10,20,30,40]) box(73,-.001,z,21.8,.014,2.5,0xa99b8d);
-  for(const [column,x] of [67.5,74.5,81].entries()) for(const [row,z] of [-44,-35,-25,-15,-5,5,15,25,35,44].entries()){
-    if(column===1 && z===44) continue;
+  box(84,-.055,0,44,.1,lajes.halfDepth*2,0x998d7d);
+  for(const x of [63.45,71,78,85,93,101]) box(x,-.003,0,2.4,.012,94,0x9e9689);
+  for(const z of [-30,-20,-10,0,10,20,30,40]) box(84,-.001,z,43.8,.014,3.2,0xa99b8d);
+  for(const [column,x] of [67.5,74.5,81,89,97,104].entries()) for(const [row,z] of [-44,-35,-25,-15,-5,5,15,25,35,44].entries()){
+    if(column>=4 && z>=35 || z===-5 && column<3) continue;
     const h=2.9+((column+row)%3)*.85;
     const tint=[0xb57050,0xa28c75,0xad6548,0x998e82][(row+column)%4];
     blockBox(x,h/2,z,4.1,h,5.2,tint);
@@ -312,11 +312,34 @@ export function createWorld(scene) {
     }
     if(row%2===0) box(x,h+.55,z+1,1.3,.92,1.3,0x516578);
   }
-  // The player's house faces the central lane, with its save point at the door.
-  blockBox(74,1.36,43,4.05,2.72,4.8,0xb5a584);
-  box(74,2.78,43,4.25,.16,5.02,0x77726b);
-  box(71.96,1.0,43,.04,2,.96,0x4c635b);
-  facadeText('CASA',71.93,2.27,43,-Math.PI/2,0x315453,.95,.28);
+  // Four modest rooms around a central hall, connected to the eastern alley.
+  const hx=98,hz=41;
+  box(hx,.022,hz,6,.044,8,0xb6aa96);
+  blockBox(hx,1.37,hz-4,6.2,2.7,.18,0xb5a584);
+  blockBox(hx,1.37,hz+4,6.2,2.7,.18,0xb5a584);
+  blockBox(hx+3,1.37,hz,.18,2.7,8,0xb5a584);
+  for(const side of [-1,1]){
+    blockBox(hx-3,1.37,hz+side*2.42,.18,2.7,3.16,0xb5a584);
+    blockBox(hx+side*1.76,1.37,hz,2.42,2.7,.14,0xc4b697);
+    blockBox(hx,1.37,hz+side*3.18,.14,2.7,1.62,0xc4b697);
+  }
+  blockBox(hx,2.77,hz,6.18,.17,8.2,0x77726b);
+  volume.push({buildingId:'lajes-home',unitId:'lajes-home:0',x:hx,z:hz,w:5.8,d:7.8,floor:0,ceiling:2.68});
+  facadeText('CASA',94.87,2.34,hz,-Math.PI/2,0x315453,.95,.28);
+  blockBox(96.1,.36,43.7,.85,.70,1.76,0x69786c);
+  box(96.1,.75,43.7,.86,.09,1.7,0xb8aa88);
+  blockBox(99.7,.27,43.6,1.18,.51,1.91,0x88634d);
+  box(99.7,.58,43.6,1.18,.13,1.88,0xc7ad94);
+  box(99.7,.67,44.27,.92,.13,.39,0xf1e5ce);
+  blockBox(96.4,.44,38.65,1.6,.86,.56,0x6e7875);
+  box(96.4,.9,38.65,1.64,.07,.61,0xc0c4b5);
+  box(100,.38,38.1,.59,.75,.63,0xe4dccb);
+  box(99.1,.84,38.16,.62,.14,.44,0xd6cab5);
+  // Fenced vehicle salvage lot beside the southern perimeter road.
+  box(42,.005,61,18,.018,7,0x736e63);
+  blockBox(43,.8,64,17,1.6,.16,0x67655b);
+  blockBox(50,.8,61,.16,1.6,6,0x67655b);
+  facadeText('FERRO-VELHO',44,2.3,63.83,Math.PI,0x315453,4.3,.55);
   for(let i=0;i<52;i++){
     const angle=i/52*Math.PI*2;
     const radius=118+random()*58;

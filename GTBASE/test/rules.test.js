@@ -8,7 +8,8 @@ test('collision respects curbside buildings, corner clearance, and world edge',(
   assert.equal(clear(2.3,2.3,.4,solids),true);
   assert.equal(clear(64.91,49,.2,solids),false);
   assert.equal(clear(70,43,.3,solids),true);
-  assert.equal(clear(84,0,.3,solids),false);
+  assert.equal(clear(104,0,.3,solids),true);
+  assert.equal(clear(106,0,.3,solids),false);
   const entity={x:2.6,z:0};
   assert.equal(move(entity,2.3,1,.4,solids),true);
   assert.deepEqual(entity,{x:2.6,z:1});

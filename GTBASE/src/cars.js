@@ -62,7 +62,7 @@ const glassBase=new T.MeshStandardMaterial({color:0x2c4b57,roughness:.12,metalne
 
 /** Builds a car from the catalogue; police adds the light bar. */
 export function buildCar(scene,model='sedan',color,police=false) {
-  const spec=carModels[model]??carModels.sedan;
+  const spec=model==='tow'?{...carModels.pickup,name:'Guincho',extras:['bed','tow']}:carModels[model]??carModels.sedan;
   const tint=color??spec.palette[0];
   const {length:L,width:W,sill,belt,roof,wheel:R,wheelbase:WB}=spec;
   const half=L/2, extras=spec.extras??[];
@@ -144,6 +144,8 @@ export function buildCar(scene,model='sedan',color,police=false) {
     add('box',0xb65e24,side*(W*.5-.13),belt-.205,half+.006,.12,.064,.032,true);
     add('box',0xc5bfb0,side*(W*.5-.26),sill-.07,-half-.036,.12,.076,.09,true);
   }
+  add('cloth',0x252a2d,0,belt-.21,half+.009,W*.41,.13,.026);
+  for(let slat=0;slat<3;slat++) add('box',0x746f66,0,belt-.25+slat*.04,half+.026,W*.36,.013,.014,true);
   // Front and rear faces.
   add('box',0x333539,0,belt-.24,half+.004,W*.44,.14,.05);
   add('box',0xc8bfac,0,sill+.035,half+.006,W*.98,.1,.045,true);
@@ -156,7 +158,7 @@ export function buildCar(scene,model='sedan',color,police=false) {
     // Door seams and handles.
     const seams=spec.doors===4?[b1,(spec.seats[0][1]+spec.seats[2][1])/2+.12,b0+.05]:[b1,spec.seats[0][1]-.62];
     for(const seam of seams) add('box',0x1c2022,side*(W/2+.005),(sill+belt)/2,seam,.012,belt-sill-.02,.025);
-    for(let i=0;i<seams.length-1;i++) add('box',0xc7bba4,side*(W/2+.01),belt-.05,seams[i+1]+.25,.035,.04,.22,true);
+    for(let i=0;i<seams.length-1;i++) add('box',0xc7bba4,side*(W/2+.01),belt-.05,seams[i+1]+Math.min(.21,(seams[i]-seams[i+1])*.25),.035,.04,.22,true);
     if(chrome) add('box',0xd9d9d2,side*(W/2+.008),belt-.03,0,.02,.03,L-.5,true);
   }
   // Model details.
@@ -174,6 +176,13 @@ export function buildCar(scene,model='sedan',color,police=false) {
     add('box',0xf1efe6,side*.2,roof+.072,(t0+t1)/2,.16,.012,t1-t0);
   }
   if(extras.includes('roofRack')) for(const side of [-1,1]) add('box',0x26292b,side*(top-.08),roof+.1,(t0+t1)/2,.05,.06,t1-t0+.2);
+  if(extras.includes('tow')){
+    const boom=add('box',0x454641,0,belt+.35,-L*.30,.135,.16,1.55,true);
+    boom.rotation.x=-.32;
+    add('box',0x363838,0,belt+.18,-L*.34,.73,.51,.35);
+    add('box',0xe59b29,0,roof+.10,(t0+t1)/2,.68,.13,.28,true);
+    add('box',0x676860,0,belt-.17,-half-.19,.91,.13,.33,true);
+  }
   if(extras.includes('bed')) {
     for(const side of [-1,1]) add('box',tint,side*(W/2-.04),belt+.22,(b0-half)/2,.08,.44,half+b0,true);
     add('box',tint,0,belt+.22,-half+.04,W,.44,.08,true);
@@ -224,7 +233,7 @@ export function buildCar(scene,model='sedan',color,police=false) {
   body.traverse(object=>{if(object instanceof T.Mesh) object.castShadow=false;});
   scene.add(root);
   return withRepair({root,body,cabin,cracks:[],wheels,lamps,hood,bumpers,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
-    steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,kind:'car',model,shape:'car:'+model,spec,
+    steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,kind:'car',model,shape:model==='tow'?'car:pickup':'car:'+model,spec,
     color:tint,handling:spec.handling,rider:null,door,doorTime:0,wheelSpin:0,handlebar:null,
     wheelRadius:R,wheelbase:WB,halfWidth:W/2,halfLength:half,seatHip:hip,flat:[false,false,false,false],
     fire:0,burning:false,wrecked:false,damageFront:0,damageRear:0});
@@ -351,10 +360,12 @@ const seatPoint=new T.Vector3(), seatTurn=new T.Quaternion();
 export function seatPerson(person,car,seat) {
   const spot=car.spec.seats?.[seat]??car.spec.seats?.[car.spec.seats.length-1];
   if(!spot) return;
-  const [x,z]=spot;
+  const [x,seatZ]=spot;
+  const [rearGlass,frontGlass]=car.spec.cabin.top;
+  const z=car.spec.open?seatZ:Math.max(rearGlass+.07,Math.min(frontGlass-.03,seatZ));
   const scale=person.root.scale.y||1;
   car.root.updateMatrixWorld(true);
-  person.root.position.copy(car.body.localToWorld(seatPoint.set(x,car.seatHip-.94*scale,z)));
+  person.root.position.copy(car.body.localToWorld(seatPoint.set(x,Math.min(car.seatHip,car.spec.roof-1.02*scale)-.94*scale,z)));
   person.root.quaternion.copy(car.body.getWorldQuaternion(seatTurn));
   person.root.visible=true;
   person.shadow.visible=false;
@@ -362,7 +373,7 @@ export function seatPerson(person,car,seat) {
   if(person.rifle) person.rifle.visible=false;
   const low=car.spec.roof-car.seatHip<1.05;
   person.body.position.set(0,0,0);
-  person.body.rotation.set(0,0,0);
+  person.body.rotation.set(-.12,0,0);
   for(let i=0;i<2;i++) {
     person.legs[i].rotation.set(low?-1.52:-1.44,0,0);
     person.shins[i].rotation.set(low?1.04:1.26,0,0);

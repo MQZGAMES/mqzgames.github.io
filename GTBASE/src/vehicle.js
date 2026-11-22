@@ -14,7 +14,7 @@ export function registerShape(id,shape) {
   profiles[id]=shape;
 }
 
-/** @typedef {{x:number,z:number,angle:number,vx:number,vz:number,speed:number,integrity:number,steer:number,impact:number,kind?:string,shape?:string,handling?:{top:number,accel:number,grip:number},flat?:boolean[],repair?:()=>void,cracks?:any[]}} VehicleBody */
+/** @typedef {{x:number,z:number,angle:number,vx:number,vz:number,speed:number,integrity:number,steer:number,impact:number,kind?:string,shape?:string,handling?:{top:number,accel:number,grip:number},bumpedVehicle?:VehicleBody,flat?:boolean[],repair?:()=>void,cracks?:any[]}} VehicleBody */
 
 export function resetVehicle(car, pose) {
   for(const mark of car.cracks??[]) mark.removeFromParent();
@@ -24,7 +24,6 @@ export function resetVehicle(car, pose) {
 }
 
 export function vehicleClear(x,z,angle,solids,kind='car') {
-  if(x>64 && !kind.startsWith('bike')) return false;
   const sx=Math.sin(angle), sz=Math.cos(angle);
   const {offsets,radius}=profile(kind);
   return offsets.every(offset=>clear(x+sx*offset,z+sz*offset,radius,solids));
@@ -89,6 +88,7 @@ export function stepVehicle(car,dt,command,solids,vehicles) {
   const {brake}=command;
   const bike=car.kind==='bike';
   const throttle=car.integrity>0?command.throttle:0;
+  car.bumpedVehicle=null;
   const targetSteer=car.integrity>0?command.steer:0;
   car.impact=Math.max(0,car.impact-dt*21);
   car.steer+=(targetSteer-car.steer)*(1-Math.exp(-dt*10));
@@ -126,6 +126,7 @@ export function stepVehicle(car,dt,command,solids,vehicles) {
         const impulse=-closing*1.22/(1/mass+1/otherMass);
         car.vx+=nx*impulse/mass; car.vz+=nz*impulse/mass;
         other.vx-=nx*impulse/otherMass; other.vz-=nz*impulse/otherMass;
+        if(closing< -3.5) car.bumpedVehicle=other;
         takeImpact(car,-closing);
         takeImpact(other,-closing*.9);
         break;

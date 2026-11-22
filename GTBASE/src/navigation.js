@@ -3,7 +3,7 @@ import { bypass, recoverDriver, safeSpeed, steeringCommand } from './traffic.js'
 import { stepVehicle } from './vehicle.js';
 
 export function footNavigator(solids) {
-  const spacing=2.55, cells=50, columns=58, edge=(cells-1)*spacing*.5;
+  const spacing=2.55, cells=50, columns=67, edge=(cells-1)*spacing*.5;
   const nodes=Array.from({length:columns*cells},(_,i)=>({x:(i%columns)*spacing-edge,z:Math.floor(i/columns)*spacing-edge}));
   const free=nodes.map(node=>clear(node.x,node.z,.38,solids));
   const neighbors=nodes.map((node,here)=>{
