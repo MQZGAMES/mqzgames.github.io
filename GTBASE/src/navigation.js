@@ -2,14 +2,37 @@ import { clear, distance, move, roads, turn } from './rules.js';
 import { bypass, recoverDriver, safeSpeed, steeringCommand } from './traffic.js';
 import { stepVehicle } from './vehicle.js';
 
+const roadHalf=5.37;
+const nearestRoad=value=>roads.reduce((best,road)=>Math.abs(value-road)<Math.abs(value-best)?road:best,roads[0]);
+/** True on the asphalt of a street, junctions included. */
+export const onRoad=(x,z)=>Math.abs(x-nearestRoad(x))<roadHalf || Math.abs(z-nearestRoad(z))<roadHalf;
+const zebraCentres=[-50.6,-25.4,-12.6,12.6,25.4,50.6];
+/** True on the painted crossings, which sit 6.4 m short of each junction. */
+export const onZebra=(x,z)=>(Math.abs(x-nearestRoad(x))<roadHalf && zebraCentres.some(c=>Math.abs(z-c)<2.1)) ||
+  (Math.abs(z-nearestRoad(z))<roadHalf && zebraCentres.some(c=>Math.abs(x-c)<2.1));
+/** A straight walk that steps onto the road away from a crossing, starting on the pavement. */
+export function crossesRoad(origin,target) {
+  // Already stranded on the asphalt away from a crossing: any way off it is fine.
+  if(onRoad(origin.x,origin.z) && !onZebra(origin.x,origin.z)) return false;
+  const steps=Math.max(2,Math.ceil(Math.hypot(target.x-origin.x,target.z-origin.z)/.55));
+  for(let i=1;i<=steps;i++) {
+    const f=i/steps,x=origin.x+(target.x-origin.x)*f,z=origin.z+(target.z-origin.z)*f;
+    if(onRoad(x,z) && !onZebra(x,z)) return true;
+  }
+  return false;
+}
+
 export function footNavigator(solids) {
   const spacing=2.55, cells=50, columns=67, edge=(cells-1)*spacing*.5;
   const nodes=Array.from({length:columns*cells},(_,i)=>({x:(i%columns)*spacing-edge,z:Math.floor(i/columns)*spacing-edge}));
   const free=nodes.map(node=>clear(node.x,node.z,.38,solids));
+  const road=nodes.map(node=>onRoad(node.x,node.z)),zebra=nodes.map(node=>onZebra(node.x,node.z));
+  // Pedestrians cross the street only on the zebra, but may always walk off the asphalt.
+  const allowed=(from,to)=>!road[to] || zebra[to] || road[from] && !zebra[from];
   const neighbors=nodes.map((node,here)=>{
     if(!free[here]) return [];
     const adjacent=[here>=columns?here-columns:-1,here<columns*(cells-1)?here+columns:-1,here%columns?here-1:-1,here%columns<columns-1?here+1:-1];
-    return adjacent.filter(next=>next>=0 && free[next] && clear((node.x+nodes[next].x)*.5,(node.z+nodes[next].z)*.5,.38,solids));
+    return adjacent.filter(next=>next>=0 && free[next] && allowed(here,next) && clear((node.x+nodes[next].x)*.5,(node.z+nodes[next].z)*.5,.38,solids));
   });
   const directLine=(origin,target)=>{
     const steps=Math.max(1,Math.ceil(distance(origin,target)/.42));
@@ -62,7 +85,7 @@ export function footNavigator(solids) {
     const dx=target.x-actor.x,dz=target.z-actor.z;
     const gap=Math.hypot(dx,dz);
     if(gap<.16) return 0;
-    const direct=gap<12 && directLine(actor,target);
+    const direct=gap<12 && directLine(actor,target) && !crossesRoad(actor,target);
     if(direct) actor.route=[];
     const now=Math.floor(performance.now()/16);
     if(now!==stamp) {stamp=now;budget=3;}
@@ -75,7 +98,7 @@ export function footNavigator(solids) {
       } else actor.repath=.05;
     }
     while(actor.route?.length && (distance(actor,actor.route[0])<.7 ||
-      actor.route.length>1 && distance(actor,actor.route[1])<4 && directLine(actor,actor.route[1]))) actor.route.shift();
+      actor.route.length>1 && distance(actor,actor.route[1])<4 && directLine(actor,actor.route[1]) && !crossesRoad(actor,actor.route[1]))) actor.route.shift();
     const next=direct?target:actor.route?.[0]??target;
     const dir=Math.atan2(next.x-actor.x,next.z-actor.z);
     const step=Math.min(speed*dt,distance(actor,next));
@@ -108,6 +131,8 @@ export function patrolDrive(unit,target,solids,vehicles,people,dt) {
     else if(Math.abs(car.z-pz)>2.4) unit.stop={x:px,z:tz};
     else if(tx!==px) unit.stop={x:px+Math.sign(tx-px)*38,z:pz};
     else if(tz!==pz) unit.stop={x:px,z:pz+Math.sign(tz-pz)*38};
+    // Same junction: run along whichever street leads to the target instead of circling the junction.
+    else if(Math.abs(target.x-car.x)>Math.abs(target.z-car.z)) unit.stop={x:target.x,z:tz};
     else unit.stop={x:tx,z:target.z};
   }
   const proximity=distance(car,target);

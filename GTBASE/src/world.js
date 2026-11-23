@@ -6,6 +6,7 @@ import { addDistrictBuilding } from './district-buildings.js';
 import { districtSpatial } from './district-spatial.js';
 import { createProps } from './props.js';
 import { createSignals } from './signals.js';
+import { furnishLajesHome } from './lajes-home.js';
 
 let seed = 473021;
 function random() {
@@ -182,6 +183,31 @@ export function createWorld(scene) {
     box(x+9.6,.173,z+8.6,4.8,.03,9.8,0x9c968a);
     facadeText('GARAGEM',x+9.6,2.85,z+3.68,0,0x3b3a33,1.4,.26);
   }
+  /**
+   * Finishes the pavement edge of one block: a pale kerb top between the crossings, stepped ramps and
+   * tactile paving where each zebra meets the pavement, and a paved corner tile.
+   */
+  function kerbAndCorners(x,z) {
+    for(const side of [-1,1]) {
+      box(x+side*13.34,.168,z,.26,.012,22.4,0xcdc4b1);
+      box(x+side*13.5,.082,z,.04,.164,22.4,0x9c9485);
+      box(x,.168,z+side*13.34,22.4,.012,.26,0xcdc4b1);
+      box(x,.082,z+side*13.5,22.4,.164,.04,0x9c9485);
+      for(const k of [-12.6,12.6]) {
+        // Ramps for the crossings over the roads on the east/west and north/south sides.
+        for(let step=0;step<3;step++) {
+          const top=[.115,.07,.03][step],offset=13.62+step*.36;
+          box(x+side*offset,top/2,z+k,.36,top,1.7,0xb4ab98);
+          box(x+k,top/2,z+side*offset,1.7,top,.36,0xb4ab98);
+        }
+        box(x+side*13.1,.168,z+k,.5,.012,1.7,0xd9b64a);
+        box(x+k,.168,z+side*13.1,1.7,.012,.5,0xd9b64a);
+        // Paved corner tile and kerb-side bollard line.
+        box(x+side*12.4,.169,z+k*.99,1.9,.011,1.9,0xbcb19b);
+      }
+    }
+  }
+
   function policeStation() {
     const y=station.z;
     box(2,.169,y,19,.045,22,0x696b65);
@@ -236,6 +262,7 @@ export function createWorld(scene) {
           box(x+k,.164,z+offset,.023,.008,2.32,0xc5b396);
         }
       }
+      kerbAndCorners(x,z);
       if(x===station.x-2 && z===station.z) policeStation();
       else if(x===residence.x && z===residence.z) home();
       else if (x===0&&z===-38) {
@@ -255,8 +282,8 @@ export function createWorld(scene) {
           const address=plot+10;
           const kind=armory?'armory':plot%5===1?'shop':plot%5===3?'shop':plot%5===0?'house':'apartments';
           const shopNames=['CAFÉ SOL','MERCADO BRASA','QUITANDA DA RUA','ARMAZÉM LUZ','BAR DO PORTO','PADARIA IPÊ'];
-          const service=armory?'armory':address===13?'barber':address===18?'clothes':address===21?'black':kind==='shop'?'store':null;
-          const special={barber:'BARBEARIA DO ZÉ',clothes:'MODA BRASA',black:'PENHORES 24H'}[service];
+          const service=armory?'armory':address===13?'barber':address===18?'clothes':address===21?'black':address===16?'workshop':kind==='shop'?'store':null;
+          const special={barber:'BARBEARIA DO ZÉ',clothes:'MODA BRASA',black:'PENHORES 24H',workshop:'OFICINA DO BIGODE'}[service];
           const name=special??(kind==='shop'?shopNames[Math.floor(plot/2)%shopNames.length]:
             kind==='apartments'?'ED. '+['IPÊ','VISTA','BRISA','ESTAÇÃO','HORIZONTE','CAPITAL'][Math.floor(plot/2)%6]:'CASA '+address);
           const color=pick([0xbc8469,0xc3a378,0x898f75,0x95a69a,0xd0ac84,0xa7735f,0xb9a991]);
@@ -311,6 +338,17 @@ export function createWorld(scene) {
       for(const dz of [-.42,0,.42]) box(x-2.11,1.64,z+1.15+dz,.04,.88,.04,0x293c40);
     }
     if(row%2===0) box(x,h+.55,z+1,1.3,.92,1.3,0x516578);
+    // Each house ages differently: bare brick, painted skirting, rebar for the next floor, a dish and stains.
+    const hash=(row*131+column*57+row*column*13)%97;
+    if(hash%3===0) {
+      box(x-2.07,1.95,z+1.9,.04,1.0,1.3,0x8d5440);                              // exposed brick
+      for(let course=0;course<5;course++) box(x-2.09,1.5+course*.2,z+1.9,.02,.022,1.3,0x5b3a2f);
+    }
+    if(hash%4===1) box(x-2.07,.45,z,.04,.9,4.1,[0x5f7b6a,0x7a5c46,0x6a6f84][hash%3]); // painted skirting
+    if(hash%5===2) for(const dz of [-1.7,0,1.7]) box(x+dz*.0,h+.5,z+dz,.05,.8,.05,0x4b3b32);       // rebar
+    if(hash%6===0) {box(x+1.4,h+.6,z-1.7,.5,.08,.5,0xcfd2d2,false,0,.5);box(x+1.4,h+.38,z-1.7,.05,.5,.05,0x555a5a);}
+    if(hash%7<3) box(x-2.08,h-.9,z-1.6,.02,1.8,.3,0x7a5a45);                      // rain streak
+    if(hash%8===4) {box(x-2.18,1.1,z+1.0,.28,.32,.06,0xe7e6df);box(x-2.2,1.1,z+1.0,.24,.2,.07,0x6c7377);} // air conditioner
   }
   // Four modest rooms around a central hall, connected to the eastern alley.
   const hx=98,hz=41;
@@ -335,6 +373,7 @@ export function createWorld(scene) {
   box(96.4,.9,38.65,1.64,.07,.61,0xc0c4b5);
   box(100,.38,38.1,.59,.75,.63,0xe4dccb);
   box(99.1,.84,38.16,.62,.14,.44,0xd6cab5);
+  const lajesHome=furnishLajesHome(scene,solid);
   // South of the ring road, with a dedicated driveway and unloading bays.
   const lot=salvageYard;
   const center=(lot.west+lot.east)/2;
@@ -380,7 +419,7 @@ export function createWorld(scene) {
   beacon.position.y=2.8;
   marker.add(beacon);
   scene.add(marker);
-  return {solid,marker,beacon,sun,sky,houseRoof,bed,doors,buildings,props,signals,
+  return {solid,marker,beacon,sun,sky,houseRoof,bed,doors,buildings,props,signals,lajesHome,
     ...districtSpatial(solid,support,volume,doors,groundHeight)};
 }
 

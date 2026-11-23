@@ -1,8 +1,15 @@
+/** Which engine voice a vehicle gets: motorcycles scream, utility vehicles rumble, everything else hums. */
+export function engineKind(car) {
+  if(car?.kind==='bike') return 'bike';
+  return /utilit/i.test(car?.spec?.category??'')?'utility':'car';
+}
+
 export function createAudio() {
   let context;
   let output;
   let engine;
   let engineGain;
+  let engineType='car';
   let enabled = true;
   function start() {
     if (!enabled) return;
@@ -64,9 +71,12 @@ export function createAudio() {
       start();
       return enabled;
     },
-    motor(speed,driving){
+    motor(speed,driving,type='car'){
       if(!context) return;
-      engine.frequency.setTargetAtTime(34+Math.abs(speed)*5,context.currentTime,.075);
+      engineType=type;
+      const multiplier=engineType==='bike'?7.2:engineType==='utility'?4.1:5;
+      engine.frequency.setTargetAtTime((engineType==='bike'?48:30)+Math.abs(speed)*multiplier,context.currentTime,.075);
+      engine.type=engineType==='bike'?'sawtooth':engineType==='utility'?'square':'triangle';
       engineGain.gain.setTargetAtTime(driving?.13:0,context.currentTime,.11);
     },
     step(){tone(79,47,.085,.12,'triangle');},
@@ -74,6 +84,8 @@ export function createAudio() {
     punch(hit){tone(hit?109:187,hit?39:73,hit?.125:.084,hit?.45:.13,'triangle');},
     crash(){tone(98,29,.24,.34,'sawtooth');},
     bell(){tone(442,521,.20,.25);tone(660,840,.29,.20,'sine',.11);},
+    click(){tone(1500,900,.03,.12,'square');},
+    flush(){noise(1.3,.38,1800);},
     siren(){tone(440,660,.35,.15);tone(660,400,.36,.15,'sine',.33);}
   };
 }

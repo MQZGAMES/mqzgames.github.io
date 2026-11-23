@@ -39,6 +39,54 @@ export function addDistrictBuilding(api,spec) {
     if(shutters) for(const side of [-1,1]) foot(u+side*(width*.5+.24),front+.09,y,.34,height+.06,.05,shutters);
   }
 
+  /**
+   * Gives a front wall its own history: a painted skirting, patches where the plaster has fallen to show brick,
+   * rain streaks under the sills, hairline cracks and the odd utility box. Seeded by the building id.
+   * @param {number} base floor level @param {number} height wall height @param {number[]} avoid u ranges kept clear [min,max,...]
+   */
+  function weather(base,height,avoid=[]) {
+    const random=seeded(id);
+    const free=(u,half)=>{for(let i=0;i<avoid.length;i+=2) if(u+half>avoid[i] && u-half<avoid[i+1]) return false;return true;};
+    const plaster=random();
+    const skirting=plaster<.55?[0,shade(color,-.28),shade(color,.22),0x6f685f][Math.floor(random()*4)%4]:0;
+    if(skirting) foot(0,front+.052,base+.46+.36,w-.5,.72,.022,skirting);
+    // Patches of exposed brick with mortar courses.
+    for(let patch=0;patch<(random()<.7?2:1);patch++) {
+      const pw=.9+random()*1.1,ph=.7+random()*.8,u=left+1.1+random()*(w-2.4),y=base+.9+random()*Math.max(.2,height*.4);
+      if(!free(u,pw/2)) continue;
+      foot(u,front+.056,y,pw,ph,.018,0x8d5440);
+      for(let course=0;course<Math.floor(ph/.2);course++) foot(u,front+.068,y-ph/2+.1+course*.2,pw,.022,.01,0x5b3a2f);
+      for(let brick=0;brick<5;brick++) foot(u+(random()-.5)*pw*.8,front+.07,y+(random()-.5)*ph*.7,.2,.09,.012,[0xa05e47,0x7e4c3a,0xb06a50][brick%3]);
+      if(random()<.6) foot(u+pw*.45,front+.054,y+ph*.5,.5,.3,.014,shade(color,.12));
+    }
+    // Rain streaks and stains.
+    for(let streak=0;streak<2+Math.floor(random()*3);streak++) {
+      const u=left+.8+random()*(w-1.6);
+      if(!free(u,.2)) continue;
+      const length=.9+random()*1.6;
+      foot(u,front+.054,base+height-.5-length/2,.12+random()*.18,length,.012,shade(color,-.2));
+    }
+    // A crack climbing the wall, drawn as a zigzag.
+    if(random()<.65) {
+      const u0=left+1+random()*(w-2),y0=base+.6+random()*1.1;
+      if(free(u0,.2)) for(let k=0;k<6;k++) foot(u0+(k%2?.06:-.05),front+.058,y0+k*.2,.025,.24,.012,0x3b3530);
+    }
+    // Meter box, drain pipe and an air-conditioner unit.
+    if(random()<.7) {
+      const u=right-.5-random()*1.5;
+      if(free(u,.3)) {foot(u,front+.09,base+1.2,.38,.5,.09,0x8c8f8a);foot(u,front+.15,base+1.35,.14,.1,.04,0xe8e2d0);}
+    }
+    if(random()<.55) {
+      const u=left+.55;
+      foot(u,front+.09,base+height*.5,.09,height,.09,0x7b7e7c);
+    }
+    if(random()<.5 && height>3.4) {
+      const u=left+w*(.25+random()*.5);
+      if(free(u,.5)) {foot(u,front+.2,base+2.55,.62,.4,.3,0xe9e8e0);foot(u,front+.2,base+2.55,.42,.28,.31,0x777c80);}
+    }
+    return random;
+  }
+
   function closedBuilding() {
     const apartments=kind==='apartments';
     const stories=apartments?spec.stories:1;
@@ -89,6 +137,7 @@ export function addDistrictBuilding(api,spec) {
         }
       }
     }
+    const random=weather(floorTop+.5,Math.min(height,3.1),[doorU-1.1,doorU+1.1]);
     if(apartments) {
       // Flat roof: parapet, water tank and stair housing well inside the outline.
       foot(0,0,top+.04,w+.12,.10,d+.12,0x77706a);
@@ -102,8 +151,13 @@ export function addDistrictBuilding(api,spec) {
       // Gabled roof with overhang, built from two prisms so the gable ends stay closed.
       const ridge=Math.min(2.0,d*.2);
       foot(0,0,top,w-.02,ridge,d-.02,color,true,0,'prism');
-      foot(0,0,top+.06,w+.5,ridge+.12,d+.7,pick(id,[0x9a5a44,0x8a4c3a,0x7b5446]),true,0,'prism');
-      foot(right-2.1,back+d*.3,top+ridge*.55,.55,1.6,.55,0x8f7a6a,true);
+      const tile=roofTiles[Math.floor(random()*roofTiles.length)];
+      foot(0,0,top+.06,w+.5,ridge+.12,d+.7,tile,true,0,'prism');
+      foot(0,0,top+ridge+.12,w+.6,.09,.34,shade(tile,-.22),false);               // ridge cap
+      foot(0,front+.34,top+.04,w+.5,.09,.12,0x6e7172);                           // gutter
+      if(random()<.5) foot(-w*.2+random()*w*.3,front-.9,top+.34,.9,.07,1.4,shade(tile,.18)); // patched tiles
+      const chimney=random()<.5?1:-1;
+      foot(chimney*(w*.3),back+d*.3,top+ridge*.55,.55+random()*.25,1.6,.55,0x8f7a6a,true);
     }
     return {id,kind,label,units:[],doorIds:[],clerk:null,
       outside:localToWorld(doorU,front+1.1,.16),entry:localToWorld(doorU,front+.2),inside:localToWorld(doorU,front+.2),
@@ -170,6 +224,8 @@ export function addDistrictBuilding(api,spec) {
         foot(side+outward*.2,v,base+1.03,.16,.09,1.56,trimmed(color));
       }
     }
+    weather(base+.3,unitHigh-.6,[frontPosition-1.6,frontPosition+1.6,displayWindows[0]-glazingWidth/2-.2,displayWindows[0]+glazingWidth/2+.2,
+      displayWindows[1]-glazingWidth/2-.2,displayWindows[1]+glazingWidth/2+.2]);
     const clerk=localToWorld(0,back+1.89,base);
     clerk.angle=angle;
     const show=localToWorld(0,front+.18,base+rise-.64);
@@ -221,3 +277,19 @@ function trimmed(color) {
   const r=Math.min(255,((color>>16)&255)+26),g=Math.min(255,((color>>8)&255)+23),b=Math.min(255,(color&255)+19);
   return r*65536+g*256+b;
 }
+
+function seeded(id) {
+  let state=0;
+  for(const char of id) state=(state*131+char.charCodeAt(0))>>>0;
+  return ()=>{
+    state=(Math.imul(state,1664525)+1013904223)>>>0;
+    return state/4294967296;
+  };
+}
+
+function shade(color,amount) {
+  const mix=channel=>Math.max(0,Math.min(255,Math.round(channel*(1+amount))));
+  return mix((color>>16)&255)*65536+mix((color>>8)&255)*256+mix(color&255);
+}
+
+const roofTiles=[0x9a5a44,0x8a4c3a,0x7b5446,0xa8654a,0x6f6a66,0x5d5148];

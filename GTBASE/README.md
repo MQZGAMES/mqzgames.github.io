@@ -33,12 +33,25 @@ O motorista, o passageiro da frente e os dois de trás aparecem sentados atrás 
 
 Os 16 cruzamentos têm semáforos voltados para quem chega, com 7 s de verde, 2 s de amarelo e 1 s com todos no vermelho, alternando os eixos. O trânsito para antes da faixa no vermelho, e também no amarelo quando há espaço para frear. Ninguém tenta ultrapassar a fila parada no sinal.
 
+Os motoristas têm temperamento (cauteloso, profissional ou apressado), sinalizam com as setas antes de virar ou ultrapassar e dão a vez a quem já está no cruzamento. Param antes da faixa quando um pedestre está nela. Quando ficam presos, dão ré e fazem retorno em três manobras ou contornam o quarteirão por outra rota. Alguns procuram uma vaga rente ao meio-fio, dentro da pista, esperam e voltam ao trânsito. As motos têm circuitos próprios, mais perto do meio-fio.
+
+O guincho para ao lado do carro abandonado ou destruído, se posiciona de ré, abaixa o braço, engata o cabo, levanta a frente e leva o carro ao ferro-velho; as rodas dianteiras do rebocado acompanham as curvas.
+
+### Oficina do Bigode
+
+Fica em uma das lojas da cidade. Cobra por peça: lataria e para-choque dianteiros, traseiros, vidros, pneus e mecânica. Instala motor (3 níveis), pneus esportivos (2 níveis) e acessórios (aerofólio, bagageiro e quebra-mato). O carro na garagem mantém as peças ao salvar.
+
+### Casa da Vila das Lajes
+
+Sala, cozinha, quarto e banheiro, com luz própria em cada cômodo, cortinas, TV, geladeira, fogão, chuveiro, vaso e pia (E para usar). O mapa marca com um anel dourado a casa do último save. Para testar no navegador, abra o jogo com `?debug` no endereço e use `window.__gtbase`.
+
 ### Pessoas
 
 - Os pedestres variam em roupa, cabelo, barba, acessórios, tom de pele, altura e porte.
 - Correm de tiros, inclusive de tiros entre NPCs, e de explosões.
 - Uma testemunha que vê um crime longe da polícia liga em cerca de 3,5 s e dá à polícia a última posição conhecida. Matar a testemunha antes impede a ligação.
 - Pedestres agredidos ou motoristas tirados do carro podem revidar com socos e desistem quando estão feridos.
+- Atravessam a rua só nas faixas, viram o ombro ao se cruzar e, em becos estreitos, um espera o outro passar.
 
 ### Lojas
 

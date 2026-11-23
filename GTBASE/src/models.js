@@ -278,7 +278,7 @@ const limbRotation=new T.Quaternion();
 function pointOnRifle(rifle,x,y,z){
   return limbTarget.set(x,y,z).applyEuler(rifle.rotation).add(rifle.position);
 }
-function bendLimb(upper,lower,point,lengthA,lengthB,bend) {
+export function bendLimb(upper,lower,point,lengthA,lengthB,bend) {
   aimDirection.subVectors(point,upper.position);
   const distance=Math.min(lengthA+lengthB-.001,Math.max(.015,aimDirection.length()));
   aimDirection.normalize();

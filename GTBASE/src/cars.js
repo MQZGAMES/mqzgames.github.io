@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { combineParts, contact, meshes, paintMat, piece } from './models.js';
+import { bendLimb, combineParts, contact, meshes, paintMat, piece } from './models.js';
 import { groundHeight } from './contact.js';
 import { registerShape } from './vehicle.js';
 
@@ -57,6 +57,7 @@ for(const [id,spec] of Object.entries(carModels)) {
     offsets:[-(spec.length/2-spec.width/2),0,spec.length/2-spec.width/2],mass:spec.handling.mass});
 }
 
+const boxGeometry=new T.BoxGeometry(1,1,1);
 const glassBase=new T.MeshStandardMaterial({color:0x2c4b57,roughness:.12,metalness:.35,flatShading:true,
   side:T.DoubleSide,transparent:true,opacity:.5,depthWrite:false});
 
@@ -136,8 +137,15 @@ export function buildCar(scene,model='sedan',color,police=false) {
     add('box',0x3a3733,x,hip+backHigh/2,z-.235,.5,backHigh,.13);
   }
   add('box',0x2b2a28,0,belt+.045,b1-.24,W-.26,.14,.34);
-  const wheelDriver=add('cylinder',0x1d1d1d,spec.seats[0][0],belt+.07,spec.seats[0][1]+.42,.17,.03,.17);
-  wheelDriver.rotation.x=Math.PI/2-.45;
+  // The steering wheel is its own group: it turns with the front wheels and the driver's hands follow the rim.
+  const wheelTilt=new T.Group();
+  wheelTilt.position.set(spec.seats[0][0],belt+.07,spec.seats[0][1]+.42);
+  wheelTilt.rotation.x=Math.PI/2-.45;
+  const wheelSpin=new T.Group();
+  wheelTilt.add(wheelSpin);
+  piece(wheelSpin,'cylinder',0x1d1d1d,0,0,0,.17,.03,.17);
+  piece(wheelSpin,'box',0x6c6a64,0,.018,0,.30,.012,.03);
+  piece(wheelSpin,'box',0x6c6a64,0,.018,.07,.03,.012,.14);
   add('cloth',0x20262a,0,hip+.02,(b0+b1)*.5,.19,.23,Math.min(1.25,b1-b0));
   for(const side of [-1,1]){
     add('box',0x655e56,side*(W/2-.15),(sill+belt)/2,(b0+b1)/2,.08,.085,b1-b0);
@@ -177,8 +185,6 @@ export function buildCar(scene,model='sedan',color,police=false) {
   }
   if(extras.includes('roofRack')) for(const side of [-1,1]) add('box',0x26292b,side*(top-.08),roof+.1,(t0+t1)/2,.05,.06,t1-t0+.2);
   if(extras.includes('tow')){
-    const boom=add('box',0x454641,0,belt+.35,-L*.30,.135,.16,1.55,true);
-    boom.rotation.x=-.32;
     add('box',0x363838,0,belt+.18,-L*.34,.73,.51,.35);
     add('box',0xe59b29,0,roof+.10,(t0+t1)/2,.68,.13,.28,true);
     add('box',0x676860,0,belt-.17,-half-.19,.91,.13,.33,true);
@@ -231,8 +237,33 @@ export function buildCar(scene,model='sedan',color,police=false) {
   combineParts(body,bodyParts.filter(part=>part.material.metalness>0),paintMat);
   for(const axle of wheels) combineParts(axle,meshes(axle));
   body.traverse(object=>{if(object instanceof T.Mesh) object.castShadow=false;});
+  body.add(wheelTilt);
+  // Turn signals stay separate from the merged shell so they can blink.
+  const amber=new T.MeshBasicMaterial({color:0xffb21c});
+  const blinkers={left:[],right:[]};
+  for(const side of [-1,1]) for(const [z,y,w] of [[half+.014,belt-.2,.1],[-half-.014,belt-.2,.12]]) {
+    const lamp=new T.Mesh(boxGeometry,amber);
+    lamp.scale.set(w,.085,.03);
+    lamp.position.set(side*(W/2-.07),y,z);
+    lamp.visible=false;
+    body.add(lamp);
+    blinkers[side>0?'left':'right'].push(lamp);
+  }
+  let towArm=null;
+  if(extras.includes('tow')) {
+    const pivot=new T.Group();
+    pivot.position.set(0,belt+.28,-L*.30);
+    piece(pivot,'box',0x454641,0,0,-.8,.135,.16,1.6,true);
+    piece(pivot,'box',0xe59b29,0,0,-1.62,.2,.2,.16);
+    const hang=new T.Group();
+    const cable=piece(hang,'box',0x202020,0,-.3,0,.03,1,.03);
+    const hook=piece(hang,'box',0xcfcfc8,0,-.65,0,.13,.1,.15,true);
+    body.add(pivot,hang);
+    towArm={pivot,hang,cable,hook,length:1.62};
+  }
   scene.add(root);
-  return withRepair({root,body,cabin,cracks:[],wheels,lamps,hood,bumpers,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
+  return withRepair({root,body,cabin,cracks:[],wheels,lamps,hood,bumpers,blinkers,towArm,armAngle:.35,signal:0,
+    steeringWheel:{tilt:wheelTilt,spin:wheelSpin},towTilt:0,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
     steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,kind:'car',model,shape:model==='tow'?'car:pickup':'car:'+model,spec,
     color:tint,handling:spec.handling,rider:null,door,doorTime:0,wheelSpin:0,handlebar:null,
     wheelRadius:R,wheelbase:WB,halfWidth:W/2,halfLength:half,seatHip:hip,flat:[false,false,false,false],
@@ -274,6 +305,81 @@ export function repairCar(car) {
     bumper.state=0;bumper.damage=0;
   }
   Object.assign(car,{damageFront:0,damageRear:0,burning:false,wrecked:false,fire:0,wreckClock:0});
+}
+
+/** What a mechanic can see: [front, rear, glass, tyres, mechanics] each as a repair amount, 0 when fine. */
+export function damageSummary(car) {
+  const bumper=end=>car.bumpers?.find(item=>item.end===end);
+  return {
+    front:Math.round(Math.min(100,(car.damageFront??0)+(bumper(1)?.state?30:0))),
+    rear:Math.round(Math.min(100,(car.damageRear??0)+(bumper(-1)?.state?30:0))),
+    glass:car.cracks?.length??0,
+    tires:(car.flat??[]).filter(Boolean).length,
+    mechanics:Math.max(0,Math.round(100-car.integrity))
+  };
+}
+
+/** Repairs one part of a vehicle: 'front', 'rear', 'glass', 'tires' or 'mechanics'. */
+export function repairPart(car,part) {
+  if(part==='front' || part==='rear') {
+    const end=part==='front'?1:-1;
+    if(end>0) car.damageFront=0; else car.damageRear=0;
+    for(const bumper of car.bumpers??[]) if(bumper.end===end) {
+      car.body.add(bumper.mesh);
+      bumper.mesh.position.copy(bumper.home);
+      bumper.mesh.rotation.set(0,0,0);
+      bumper.state=0;bumper.damage=0;
+    }
+  } else if(part==='glass') {
+    for(const mark of car.cracks??[]) mark.removeFromParent();
+    if(car.cracks) car.cracks.length=0;
+  } else if(part==='tires') car.flat?.fill(false);
+  else if(part==='mechanics') car.integrity=Math.max(car.integrity,100);
+}
+
+const partCatalogue={
+  spoiler:{label:'Aerofólio'},
+  rack:{label:'Bagageiro de teto'},
+  bullbar:{label:'Quebra-mato reforçado'}
+};
+export const partNames=Object.fromEntries(Object.entries(partCatalogue).map(([key,{label}])=>[key,label]));
+
+/** Bolts a cosmetic part on or takes it off again; the meshes stay separate from the merged paint shell. */
+export function fitPart(car,part,on) {
+  if(car.kind!=='car' || !partCatalogue[part]) return;
+  car.fitted??=new Set();
+  car.fittedMeshes??={};
+  if(!on) {
+    for(const mesh of car.fittedMeshes[part]??[]) mesh.removeFromParent();
+    delete car.fittedMeshes[part];
+    car.fitted.delete(part);
+    return;
+  }
+  if(car.fitted.has(part)) return;
+  const {spec}=car,{width:W,length:L,roof,belt}=spec,half=L/2;
+  const group=[];
+  const add=(shape,color,x,y,z,w,h,d,shiny=false)=>group.push(piece(car.body,shape,color,x,y,z,w,h,d,shiny));
+  if(part==='spoiler') {
+    for(const side of [-1,1]) add('box',0x1b1c1e,side*.6,belt+.16,-half+.3,.06,.26,.08);
+    add('box',car.color,0,belt+.31,-half+.27,W-.2,.05,.34,true);
+  } else if(part==='rack') {
+    const [t0,t1]=spec.cabin.top;
+    for(const side of [-1,1]) add('box',0x26292b,side*(W/2-.35),roof+.12,(t0+t1)/2,.05,.06,t1-t0+.25);
+    for(const z of [t0+.1,(t0+t1)/2,t1-.1]) add('box',0x26292b,0,roof+.15,z,W-.7,.04,.05);
+  } else if(part==='bullbar') {
+    add('box',0x2a2c2e,0,spec.sill+.06,half+.18,W-.3,.07,.07,true);
+    for(const side of [-1,1]) add('box',0x2a2c2e,side*(W/2-.3),spec.sill+.28,half+.15,.06,.5,.06,true);
+    add('box',0x2a2c2e,0,spec.sill+.5,half+.13,W-.4,.06,.06,true);
+  }
+  car.fittedMeshes[part]=group;
+  car.fitted.add(part);
+}
+
+/** Engine and tyre upgrades change handling. Each car owns a copy so the model's catalogue entry stays untouched. */
+export function applyUpgrades(car) {
+  const base=car.spec.handling;
+  const {engine=0,tires=0}=car.upgrades??{};
+  car.handling={...base,top:base.top*(1+.055*engine),accel:base.accel*(1+.09*engine),grip:base.grip*(1+.075*tires)};
 }
 
 export function coupe(scene,color,police=false) {
@@ -347,8 +453,18 @@ export function motorcycle(scene,color,variant='street') {
   }
   combineParts(body,meshes(body).filter(mesh=>mesh!==hood));
   const door=new T.Group();
+  const amber=new T.MeshBasicMaterial({color:0xffb21c});
+  const blinkers={left:[],right:[]};
+  for(const side of [-1,1]) for(const [x,y,z] of [[.30,1.2,.47],[.19,.76,axles[0]-.17]]) {
+    const lamp=new T.Mesh(boxGeometry,amber);
+    lamp.scale.set(.07,.05,.05);
+    lamp.position.set(side*x,y,z);
+    lamp.visible=false;
+    body.add(lamp);
+    blinkers[side>0?'left':'right'].push(lamp);
+  }
   scene.add(root);
-  return withRepair({root,body,cabin:null,cracks:[],wheels,lamps:[],hood,bumpers:[],speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
+  return withRepair({root,body,cabin:null,cracks:[],wheels,lamps:[],hood,bumpers:[],blinkers,signal:0,speed:0,angle:0,x:0,z:0,vx:0,vz:0,integrity:100,
     steer:0,impact:0,stolen:false,abandoned:0,driver:null,routeIndex:-1,kind:'bike',model:variant,shape:'bike',spec,
     color,handling:spec.handling,rider:null,door,doorTime:0,wheelSpin:0,handlebar,
     wheelRadius:wheelR,wheelbase:axles[1]-axles[0],halfWidth:.35,halfLength:1.1,seatHip:.6,flat:[false,false],
@@ -386,6 +502,30 @@ export function seatPerson(person,car,seat) {
       person.arms[i].rotation.set(-.32,0,(i?-1:1)*.08);
       person.forearms[i].rotation.set(-1.05,0,0);
     }
+  }
+  if(seat===0 && car.steeringWheel) gripWheel(person,car);
+}
+
+const grip=new T.Vector3(), upAxis=new T.Vector3(0,1,0);
+/**
+ * World position of a hand on the rim. Hands sit at ten and two o'clock and slip along the rim: they follow
+ * only part of the wheel's rotation, which keeps them within reach over a full lock.
+ */
+export function wheelGrip(car,side,target=new T.Vector3()) {
+  const {spin}=car.steeringWheel;
+  const slip=.4;
+  target.set(side*Math.sin(1.02)*.155,0,-Math.cos(1.02)*.155);
+  target.applyAxisAngle(upAxis,(slip-1)*spin.rotation.y);
+  return spin.localToWorld(target);
+}
+/** Puts both hands on the rim; the arms follow every turn of the wheel. */
+function gripWheel(person,car) {
+  car.root.updateMatrixWorld(true);
+  person.root.updateMatrixWorld(true);
+  for(let i=0;i<2;i++) {
+    const side=i===0?-1:1;
+    const hand=person.body.worldToLocal(wheelGrip(car,side,grip));
+    bendLimb(person.arms[i],person.forearms[i],hand,.23,.227,[side*.57,-1,.16]);
   }
 }
 
@@ -480,6 +620,21 @@ export function poseCar(car, dt, steer = 0) {
     wheel.scale.set(1,flat?.72:1,flat?1.12:1);
     wheel.rotation.set(car.wheelSpin,wheel.position.z>0?steer*(bike?.22:.23):0,0,'YXZ');
   });
+  if(car.blinkers) {
+    const on=car.signal && Math.floor(performance.now()/330)%2===0;
+    for(const lamp of car.blinkers.left) lamp.visible=Boolean(on && car.signal>0);
+    for(const lamp of car.blinkers.right) lamp.visible=Boolean(on && car.signal<0);
+  }
+  if(car.steeringWheel) car.steeringWheel.spin.rotation.y=-steer*2.6;
+  if(car.towArm) {
+    const {pivot,hang,cable,hook,length}=car.towArm;
+    pivot.rotation.x=car.armAngle;
+    const tipY=pivot.position.y+Math.sin(car.armAngle)*length,tipZ=pivot.position.z-Math.cos(car.armAngle)*length;
+    hang.position.set(0,tipY,tipZ);
+    const drop=Math.min(1.5,Math.max(.08,tipY-.5));
+    cable.scale.y=drop;cable.position.y=-drop/2;hook.position.y=-drop-.05;
+  }
+  if(car.towTilt) car.body.rotation.x+=car.towTilt;
   const wear=100-car.integrity;
   car.hood.rotation.x=wear*.0031+(car.damageFront>30?.18:0);
   car.hood.rotation.z=wear*.0013;

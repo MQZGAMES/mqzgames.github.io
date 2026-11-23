@@ -5,6 +5,7 @@ const saveKey='gtbase:progress:1';
 const whole=(value,max)=>Number.isFinite(value)?clamp(Math.floor(value),0,max):0;
 const vehicleModels=['sedan','hatch','wagon','taxi','pickup','van','suv','sport','muscle','luxury','convertible'];
 const bikeModels=['street','sport','chopper','scooter'];
+const fittedParts=['spoiler','rack','bullbar'];
 
 export function loadProgress(storage) {
   try {
@@ -14,8 +15,11 @@ export function loadProgress(storage) {
     const stash=record.stash??{};
     const stored=record.garage;
     const garage=stored && (stored.kind==='car' && vehicleModels.includes(stored.model) || stored.kind==='bike' && bikeModels.includes(stored.model)) &&
-      Number.isInteger(stored.color) && stored.color>=0 && stored.color<=0xffffff?{kind:stored.kind,model:stored.model,color:stored.color}:null;
+      Number.isInteger(stored.color) && stored.color>=0 && stored.color<=0xffffff?{kind:stored.kind,model:stored.model,color:stored.color,
+      upgrades:{engine:whole(stored.upgrades?.engine,3),tires:whole(stored.upgrades?.tires,2)},
+      fitted:Array.isArray(stored.fitted)?stored.fitted.filter(part=>fittedParts.includes(part)):[]}:null;
     return {
+      checkpoint:record.checkpoint==='lajes'?'lajes':'brasa',
       ...(record.checkpoint==='lajes'?lajes.home:{x:residence.x+2.5,z:residence.z-2.73}),
       cash:clamp(Math.floor(record.cash),0,999999),
       armed:record.armed===true,
