@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Scene, Vector3 } from 'three';
-import { person } from '../src/models.js';
+import { animatePerson, character, person } from '../src/models.js';
 import { applyUpgrades, buildCar, damageSummary, fitPart, motorcycle, partNames, poseCar, repairPart, seatPerson, wheelGrip } from '../src/cars.js';
 import { adoptNearestRoute, bikeRouteIndexes, detourAroundBlock, driveTraffic, resetDriver, streetFits, trafficRoutes, uTurnCommand } from '../src/traffic.js';
 import { stepVehicle } from '../src/vehicle.js';
@@ -284,4 +284,31 @@ test('cars, motorcycles and utility vehicles get different engine voices',()=>{
   assert.equal(engineKind(motorcycle(scene,0x335577,'street')),'bike');
   assert.equal(engineKind(null),'car');
   assert.ok(Object.values(carModels).some(spec=>/utilit/.test(spec.category)));
+});
+
+test('a shouldered rifle sits in front of the chest with both hands on it, and low ready points down',()=>{
+  const scene=new Scene();
+  const shooter=character(scene,{});
+  shooter.weapon='rifle';
+  for(const [aim,down] of [[true,false],[false,true]]) {
+    animatePerson(shooter,1/60,0,aim,true,0,0);
+    shooter.root.updateMatrixWorld(true);
+    const rifle=shooter.rifle;
+    assert.equal(rifle.parent,shooter.body);
+    const butt=rifle.localToWorld(new Vector3(0,.2,.06)),muzzle=shooter.rifleMuzzle.getWorldPosition(new Vector3());
+    const buttLocal=shooter.body.worldToLocal(butt.clone());
+    assert.ok(buttLocal.z>.16,'the butt is in front of the chest, not inside it: '+buttLocal.z.toFixed(2));
+    assert.ok(muzzle.z>butt.z+.5,'the muzzle points forward');
+    if(down) assert.ok(muzzle.y<butt.y-.3,'low ready points the muzzle down');
+    else assert.ok(Math.abs(muzzle.y-butt.y)<.08,'aimed level');
+    const grips=[rifle.localToWorld(new Vector3(0,-.1,-.06)),rifle.localToWorld(new Vector3(0,aim?-.2:-.12,.02))];
+    shooter.forearms.forEach((forearm,i)=>{
+      const hand=forearm.localToWorld(new Vector3(0,-.227,0));
+      assert.ok(hand.distanceTo(grips[i])<.05,(aim?'aimed':'ready')+' hand '+i+' is '+hand.distanceTo(grips[i]).toFixed(3)+' m from its grip');
+    });
+    for(let y=-.8;y<=.2;y+=.05) {
+      const p=shooter.body.worldToLocal(rifle.localToWorld(new Vector3(0,y,.06)));
+      assert.ok(!(Math.abs(p.x)<.26 && p.z<.16 && p.z>-.16 && p.y>1 && p.y<1.5),'rifle passes through the torso at '+y.toFixed(2));
+    }
+  }
 });

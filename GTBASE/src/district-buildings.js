@@ -40,49 +40,46 @@ export function addDistrictBuilding(api,spec) {
   }
 
   /**
-   * Gives a front wall its own history: a painted skirting, patches where the plaster has fallen to show brick,
-   * rain streaks under the sills, hairline cracks and the odd utility box. Seeded by the building id.
-   * @param {number} base floor level @param {number} height wall height @param {number[]} avoid u ranges kept clear [min,max,...]
+   * Gives a front wall its own history: a painted skirting at the foot of the wall, patches where the plaster has
+   * fallen to show brick, rain streaks, a hairline crack and the odd utility box. Seeded by the building id.
+   * Nothing is placed over a door or window: `avoid` lists the [min,max] u ranges that must stay clear.
+   * @param {number} base floor level @param {number} height wall height @param {number[]} avoid
    */
   function weather(base,height,avoid=[]) {
     const random=seeded(id);
-    const free=(u,half)=>{for(let i=0;i<avoid.length;i+=2) if(u+half>avoid[i] && u-half<avoid[i+1]) return false;return true;};
-    const plaster=random();
-    const skirting=plaster<.55?[0,shade(color,-.28),shade(color,.22),0x6f685f][Math.floor(random()*4)%4]:0;
-    if(skirting) foot(0,front+.052,base+.46+.36,w-.5,.72,.022,skirting);
-    // Patches of exposed brick with mortar courses.
+    const free=(u,half)=>{
+      if(u-half<left+.35 || u+half>right-.35) return false;
+      for(let i=0;i<avoid.length;i+=2) if(u+half>avoid[i] && u-half<avoid[i+1]) return false;
+      return true;
+    };
+    const spot=half=>{
+      for(let attempt=0;attempt<8;attempt++) {
+        const u=left+.4+half+random()*(w-.8-half*2);
+        if(free(u,half)) return u;
+      }
+      return null;
+    };
+    if(random()<.55) foot(0,front+.052,base+.36,w-.5,.72,.022,[shade(color,-.28),shade(color,.22),0x6f685f][Math.floor(random()*3)]);
     for(let patch=0;patch<(random()<.7?2:1);patch++) {
-      const pw=.9+random()*1.1,ph=.7+random()*.8,u=left+1.1+random()*(w-2.4),y=base+.9+random()*Math.max(.2,height*.4);
-      if(!free(u,pw/2)) continue;
+      const pw=.8+random()*.7,ph=.5+random()*.5,u=spot(pw/2);
+      if(u===null) continue;
+      const y=base+.95+random()*Math.max(0,height-ph-1.4)+ph/2;
       foot(u,front+.056,y,pw,ph,.018,0x8d5440);
-      for(let course=0;course<Math.floor(ph/.2);course++) foot(u,front+.068,y-ph/2+.1+course*.2,pw,.022,.01,0x5b3a2f);
-      for(let brick=0;brick<5;brick++) foot(u+(random()-.5)*pw*.8,front+.07,y+(random()-.5)*ph*.7,.2,.09,.012,[0xa05e47,0x7e4c3a,0xb06a50][brick%3]);
-      if(random()<.6) foot(u+pw*.45,front+.054,y+ph*.5,.5,.3,.014,shade(color,.12));
+      for(let course=1;course<Math.floor(ph/.18);course++) foot(u,front+.068,y-ph/2+course*.18,pw,.022,.01,0x5b3a2f);
     }
-    // Rain streaks and stains.
-    for(let streak=0;streak<2+Math.floor(random()*3);streak++) {
-      const u=left+.8+random()*(w-1.6);
-      if(!free(u,.2)) continue;
-      const length=.9+random()*1.6;
-      foot(u,front+.054,base+height-.5-length/2,.12+random()*.18,length,.012,shade(color,-.2));
+    for(let streak=0;streak<2+Math.floor(random()*2);streak++) {
+      const u=spot(.12);
+      if(u===null) continue;
+      const length=.8+random()*1.2;
+      foot(u,front+.054,base+height-.15-length/2,.14,length,.012,shade(color,-.18));
     }
-    // A crack climbing the wall, drawn as a zigzag.
-    if(random()<.65) {
-      const u0=left+1+random()*(w-2),y0=base+.6+random()*1.1;
-      if(free(u0,.2)) for(let k=0;k<6;k++) foot(u0+(k%2?.06:-.05),front+.058,y0+k*.2,.025,.24,.012,0x3b3530);
+    if(random()<.6) {
+      const u=spot(.12);
+      if(u!==null) for(let k=0;k<5;k++) foot(u+(k%2?.05:-.04),front+.058,base+.8+k*.19,.022,.22,.012,0x3b3530);
     }
-    // Meter box, drain pipe and an air-conditioner unit.
     if(random()<.7) {
-      const u=right-.5-random()*1.5;
-      if(free(u,.3)) {foot(u,front+.09,base+1.2,.38,.5,.09,0x8c8f8a);foot(u,front+.15,base+1.35,.14,.1,.04,0xe8e2d0);}
-    }
-    if(random()<.55) {
-      const u=left+.55;
-      foot(u,front+.09,base+height*.5,.09,height,.09,0x7b7e7c);
-    }
-    if(random()<.5 && height>3.4) {
-      const u=left+w*(.25+random()*.5);
-      if(free(u,.5)) {foot(u,front+.2,base+2.55,.62,.4,.3,0xe9e8e0);foot(u,front+.2,base+2.55,.42,.28,.31,0x777c80);}
+      const u=spot(.25);
+      if(u!==null) {foot(u,front+.09,base+1.25,.38,.5,.09,0x8c8f8a);foot(u,front+.15,base+1.4,.14,.1,.04,0xe8e2d0);}
     }
     return random;
   }
@@ -137,7 +134,9 @@ export function addDistrictBuilding(api,spec) {
         }
       }
     }
-    const random=weather(floorTop+.5,Math.min(height,3.1),[doorU-1.1,doorU+1.1]);
+    const windowSlots=apartments?[left+w*.17,left+w*.38,right-w*.38,right-w*.17]:[w*.18,w*.38];
+    const halfWindow=(apartments?1.26:1.2)/2+(kind==='house'?.6:.25);
+    const random=weather(floorTop,Math.min(height,3.15),[doorU-1.15,doorU+1.15,...windowSlots.flatMap(u=>[u-halfWindow,u+halfWindow])]);
     if(apartments) {
       // Flat roof: parapet, water tank and stair housing well inside the outline.
       foot(0,0,top+.04,w+.12,.10,d+.12,0x77706a);
@@ -224,7 +223,7 @@ export function addDistrictBuilding(api,spec) {
         foot(side+outward*.2,v,base+1.03,.16,.09,1.56,trimmed(color));
       }
     }
-    weather(base+.3,unitHigh-.6,[frontPosition-1.6,frontPosition+1.6,displayWindows[0]-glazingWidth/2-.2,displayWindows[0]+glazingWidth/2+.2,
+    weather(base,unitHigh-.3,[frontPosition-1.6,frontPosition+1.6,displayWindows[0]-glazingWidth/2-.2,displayWindows[0]+glazingWidth/2+.2,
       displayWindows[1]-glazingWidth/2-.2,displayWindows[1]+glazingWidth/2+.2]);
     const clerk=localToWorld(0,back+1.89,base);
     clerk.angle=angle;

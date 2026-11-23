@@ -194,12 +194,7 @@ export function createWorld(scene) {
       box(x,.168,z+side*13.34,22.4,.012,.26,0xcdc4b1);
       box(x,.082,z+side*13.5,22.4,.164,.04,0x9c9485);
       for(const k of [-12.6,12.6]) {
-        // Ramps for the crossings over the roads on the east/west and north/south sides.
-        for(let step=0;step<3;step++) {
-          const top=[.115,.07,.03][step],offset=13.62+step*.36;
-          box(x+side*offset,top/2,z+k,.36,top,1.7,0xb4ab98);
-          box(x+k,top/2,z+side*offset,1.7,top,.36,0xb4ab98);
-        }
+        // Tactile paving where each crossing meets the kerb; nothing reaches into the roadway.
         box(x+side*13.1,.168,z+k,.5,.012,1.7,0xd9b64a);
         box(x+k,.168,z+side*13.1,1.7,.012,.5,0xd9b64a);
         // Paved corner tile and kerb-side bollard line.
@@ -341,14 +336,14 @@ export function createWorld(scene) {
     // Each house ages differently: bare brick, painted skirting, rebar for the next floor, a dish and stains.
     const hash=(row*131+column*57+row*column*13)%97;
     if(hash%3===0) {
-      box(x-2.07,1.95,z+1.9,.04,1.0,1.3,0x8d5440);                              // exposed brick
-      for(let course=0;course<5;course++) box(x-2.09,1.5+course*.2,z+1.9,.02,.022,1.3,0x5b3a2f);
+      box(x-2.07,1.75,z-2.0,.04,.9,.9,0x8d5440);                               // exposed brick beside the door
+      for(let course=0;course<4;course++) box(x-2.09,1.39+course*.2,z-2.0,.02,.022,.9,0x5b3a2f);
     }
-    if(hash%4===1) box(x-2.07,.45,z,.04,.9,4.1,[0x5f7b6a,0x7a5c46,0x6a6f84][hash%3]); // painted skirting
-    if(hash%5===2) for(const dz of [-1.7,0,1.7]) box(x+dz*.0,h+.5,z+dz,.05,.8,.05,0x4b3b32);       // rebar
+    if(hash%4===1) for(const [from,to] of [[-2.55,-1.3],[-.3,2.55]]) box(x-2.07,.45,z+(from+to)/2,.04,.9,to-from,[0x5f7b6a,0x7a5c46,0x6a6f84][hash%3]);
+    if(hash%5===2) for(const dz of [-1.7,0,1.7]) box(x,h+.5,z+dz,.05,.8,.05,0x4b3b32);                // rebar
     if(hash%6===0) {box(x+1.4,h+.6,z-1.7,.5,.08,.5,0xcfd2d2,false,0,.5);box(x+1.4,h+.38,z-1.7,.05,.5,.05,0x555a5a);}
-    if(hash%7<3) box(x-2.08,h-.9,z-1.6,.02,1.8,.3,0x7a5a45);                      // rain streak
-    if(hash%8===4) {box(x-2.18,1.1,z+1.0,.28,.32,.06,0xe7e6df);box(x-2.2,1.1,z+1.0,.24,.2,.07,0x6c7377);} // air conditioner
+    if(hash%7<3) box(x-2.08,h-.9,z+2.25,.02,1.8,.3,0x7a5a45);                     // rain streak
+    if(hash%8===4) {box(x-2.18,.62,z+1.15,.12,.32,.5,0xe7e6df);box(x-2.25,.62,z+1.15,.02,.22,.4,0x6c7377);} // air conditioner
   }
   // Four modest rooms around a central hall, connected to the eastern alley.
   const hx=98,hz=41;
@@ -390,10 +385,20 @@ export function createWorld(scene) {
     const angle=i/52*Math.PI*2;
     const radius=118+random()*58;
     const shade=pick([0x938f84,0xa09a89,0x989c98,0x8c9290]);
-    const x=Math.sin(angle)*radius, z=Math.cos(angle)*radius;
-    draw('hill',x,-1,z,12+random()*33,3+random()*22,10+random()*20,shade,false,angle);
-    const height=4+random()*16;
-    box(x,height*.5-1,z,3+random()*9,height,4+random()*8,pick([0x9b8d82,0x888e8d,0x9a8b82]),false);
+    const hw=12+random()*33,hh=3+random()*22,hd=10+random()*20;
+    const height=4+random()*16,bw=3+random()*9,bd=4+random()*8,tint=pick([0x9b8d82,0x888e8d,0x9a8b82]);
+    // Push each backdrop hill out until it clears the city, Vila das Lajes and the salvage yard.
+    const reach=Math.max(hw,hd)+4;
+    const blocked=r=>{
+      const x=Math.sin(angle)*r,z=Math.cos(angle)*r;
+      return [[-70,70,-70,70],[lajes.west-4,lajes.east+2,-lajes.halfDepth-4,lajes.halfDepth+4],[salvageYard.west-4,salvageYard.east+4,salvageYard.north-4,salvageYard.south+4]]
+        .some(([x0,x1,z0,z1])=>x+reach>x0 && x-reach<x1 && z+reach>z0 && z-reach<z1);
+    };
+    let r=radius;
+    while(blocked(r) && r<radius+120) r+=4;
+    const x=Math.sin(angle)*r, z=Math.cos(angle)*r;
+    draw('hill',x,-1,z,hw,hh,hd,shade,false,angle);
+    box(x,height*.5-1,z,bw,height,bd,tint,false);
   }
   props.finalize();
   const signals=createSignals(scene,solid);

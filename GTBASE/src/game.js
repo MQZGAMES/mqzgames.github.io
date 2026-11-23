@@ -75,9 +75,12 @@ function start() {
   const parked=[...carSpawns.map(({model})=>buildCar(scene,model,paintFor(model))),
     ...bikeSpawns.map(({color,variant})=>motorcycle(scene,color,variant))];
   const trafficModels=['sedan','taxi','hatch','scooter','van','suv','wagon','street'];
+  const spareModels=['sedan','hatch','taxi','suv'];
   const traffic=[0xe19552,0x4e7c89,0x8a4d45,0x479171,0x95877f,0x596587,0xc6b9a0,0xae9a5a,0x527d86,0xb07367,0x6c8359,0x887b91].map((color,index)=>{
-    const model=trafficModels[index%8];
-    const car=index===3||index===7?motorcycle(scene,color,model):buildCar(scene,model,paintFor(model));
+    const bike=index===3||index===7;
+    // Only the two motorcycle slots use bike variants; the extra cars cycle through real car models.
+    const model=bike?trafficModels[index]:carModels[trafficModels[index%8]]?trafficModels[index%8]:spareModels[index%spareModels.length];
+    const car=bike?motorcycle(scene,color,model):buildCar(scene,model,paintFor(model));
     car.routeIndex=index===3||index===7?8+(index===7?1:0):index%8;
     if(car.kind==='bike') {
       car.rider=character(scene,randomLook(4000+index));
@@ -200,6 +203,8 @@ function start() {
   const atlasMap=/** @type {HTMLCanvasElement} */(element('atlas-map'));
   const cursor={x:128,z:128};
   let waypoint=null;
+  /** @type {number[]|null} */
+  let debugCamera=null;
   const pin=new T.Mesh(new T.OctahedronGeometry(.55),new T.MeshBasicMaterial({color:0xf9ad41}));
   scene.add(pin);pin.visible=false;
   function markDestination(x,z) {
@@ -208,6 +213,7 @@ function start() {
     pin.visible=true;atlas.close();input.clear();
   }
   element('mark-lajes').onclick=()=>markDestination(mapPos(63.6),mapPos(0));
+  element('mark-lajes-home').onclick=()=>markDestination(mapPos(lajes.home.x-1.6),mapPos(lajes.home.z));
   function openAtlas() {
     if(!playing || shop.open || atlas.open) return;
     cursor.x=mapPos(player.x);cursor.z=mapPos(player.z);
@@ -253,6 +259,15 @@ function start() {
   mapCtx.beginPath();mapCtx.arc(mapPos(63.6),mapPos(0),3,0,2*Math.PI);mapCtx.fill();
   mapCtx.textAlign='right';mapCtx.font='bold 9px system-ui';
   mapCtx.fillText('Vila das Lajes',mapPos(62),mapPos(-2));
+  // The player's house in Vila das Lajes: a small house glyph and its name.
+  const houseGlyph=(ctx,x,z,size)=>{
+    ctx.fillStyle='#ffd35a';ctx.strokeStyle='#243938';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(x-size,z);ctx.lineTo(x,z-size);ctx.lineTo(x+size,z);ctx.lineTo(x+size*.75,z);
+    ctx.lineTo(x+size*.75,z+size*.9);ctx.lineTo(x-size*.75,z+size*.9);ctx.lineTo(x-size*.75,z);ctx.closePath();ctx.fill();ctx.stroke();
+  };
+  houseGlyph(mapCtx,mapPos(lajes.home.x),mapPos(lajes.home.z),5);
+  mapCtx.fillStyle='#ffe4aa';mapCtx.textAlign='right';
+  mapCtx.fillText('Sua casa',mapPos(lajes.home.x)-7,mapPos(lajes.home.z)+3);
 
   function qualityUpdate() {
     const high=quality.value==='high', low=quality.value==='low';
@@ -965,7 +980,7 @@ function start() {
       if(height>.85 || Math.random()<.45) {
         if(car===driving) {
           harm(player,14,shooter);
-          if(player.health>0 && Math.random()<.3) {exitVehicle(true);player.trip=.6;announce('VocÃª caiu da moto.');}
+          if(player.health>0 && Math.random()<.3) {exitVehicle(true);player.trip=.6;announce('Você caiu da moto.');}
         } else ejectOccupant(car,40,shooter);
         return;
       }
@@ -1198,7 +1213,7 @@ function start() {
 
   function fire(aim) {
     if(player.ragdoll) return;
-    if(punchMotion>0 || shotCooldown>0 || player.health<=0 || !armed || !equipped) return;
+    if(punchMotion>0 || shotCooldown>0 || player.health<=0 || !equipped || !(weaponSlot==='rifle'?rifleOwned:armed)) return;
     if(ammo<=0) {if(aim) tagForGang(cachedSight);shotCooldown=.32;announce('Sem balas. Reponha na loja.');return;}
     const watched=policeSees(player);
     const rifle=weaponSlot==='rifle';
@@ -1497,7 +1512,7 @@ function start() {
     const requested=wantedUnits(heat);
     if(heat>0) {
       heat=Math.max(0,heat-dt*(sightOfPolice?.23:1.10));
-      if(heat===0) {lastKnown=null;sightOfPolice=false;announce('VocÃª despistou a polÃ­cia.');}
+      if(heat===0) {lastKnown=null;sightOfPolice=false;announce('Você despistou a polícia.');}
     }
     if(shopAlarm && ((shopAlarm.time-=dt)<=0 || distance(shopAlarm.unit.car,shopAlarm.location)<10)) shopAlarm=null;
     police.forEach((unit,i)=>{
@@ -1629,7 +1644,7 @@ function start() {
         if(car.driver || policeCar(car)?.officer.seated) ejectOccupant(car,0,car);
         car.driver=null;
         car.burning=true;car.fire=bike?4.5:7;
-        if(distance(car,player)<4) announce('O veÃ­culo pegou fogo! Saia jÃ¡.');
+        if(distance(car,player)<4) announce('O veículo pegou fogo! Saia já.');
       }
       if(car.burning) {
         car.fire-=dt;
@@ -2489,7 +2504,6 @@ function start() {
     for(const car of civilianCars) if(car!==driving && car.integrity>0) dot(car,car.driver?'#82b9b3':'#eab987',car.kind==='bike'?2.2:car.driver?2.6:3.5);
     dot(weaponShop,'#eaff89',6);
     dot(salvageYard.bay,'#d1ad62',3.5);
-    dot(lajes.home,'#ffe4aa',4);
     dot(residence,'#dcc39b',5);
     const saveSpot=lastSave==='lajes'?lajes.home:lastSave==='brasa'?residence:null;
     if(saveSpot) {
@@ -2549,7 +2563,7 @@ function start() {
         if(Math.abs(control.y)>.6 && navDelay<=0) {store.move(control.y>0?-1:1);navDelay=.22;}
         if(Math.abs(control.y)<.3) navDelay=0;
       }
-      renderer.render(scene,camera);
+    renderer.render(scene,camera);
       return;
     }
     if(!started) {
@@ -2648,6 +2662,7 @@ function start() {
         uiTime=.10;
       }
     }
+      if(debugCamera) {camera.position.set(debugCamera[0],debugCamera[1],debugCamera[2]);camera.lookAt(debugCamera[3],debugCamera[4],debugCamera[5]);}
     renderer.render(scene,camera);
     if(playing && quality.value==='auto' && raw>0 && raw<.22 && loadFactor>.7) {
       frameTime+=raw;
@@ -2712,6 +2727,9 @@ function start() {
       place:(x,z)=>{Object.assign(player,{x,z});syncFloor(player);cameraFresh=true;},
       interact,workshopStop,homeFixture,saveGame,enter,exitVehicle,openShop,publicShops,gang,recruit,escorts,
       crime:()=>wanted(40,player,true),setDriving:car=>{driving=car;},
+      view:(...v)=>{debugCamera=v.length?v:null;},
+      arm:slot=>{if(slot==='rifle'){rifleOwned=true;addAmmo('rifle',90);}else{armed=true;addAmmo('pistol',36);}holdWeapon(slot);},
+      ammo:()=>ammo,setYaw:v=>{yaw=v;},
       step:(dt,count=1)=>{for(let i=0;i<count;i++){world.signals.update(dt);updatePeople(dt,player);updateVehicles(dt,player);}}};
   }
   reset();
