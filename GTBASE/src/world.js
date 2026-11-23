@@ -183,23 +183,13 @@ export function createWorld(scene) {
     box(x+9.6,.173,z+8.6,4.8,.03,9.8,0x9c968a);
     facadeText('GARAGEM',x+9.6,2.85,z+3.68,0,0x3b3a33,1.4,.26);
   }
-  /**
-   * Finishes the pavement edge of one block: a pale kerb top between the crossings, stepped ramps and
-   * tactile paving where each zebra meets the pavement, and a paved corner tile.
-   */
+  /** Finishes the pavement edge of one block with a pale kerb top and a darker kerb face. */
   function kerbAndCorners(x,z) {
     for(const side of [-1,1]) {
       box(x+side*13.34,.168,z,.26,.012,22.4,0xcdc4b1);
       box(x+side*13.5,.082,z,.04,.164,22.4,0x9c9485);
       box(x,.168,z+side*13.34,22.4,.012,.26,0xcdc4b1);
       box(x,.082,z+side*13.5,22.4,.164,.04,0x9c9485);
-      for(const k of [-12.6,12.6]) {
-        // Tactile paving where each crossing meets the kerb; nothing reaches into the roadway.
-        box(x+side*13.1,.168,z+k,.5,.012,1.7,0xd9b64a);
-        box(x+k,.168,z+side*13.1,1.7,.012,.5,0xd9b64a);
-        // Paved corner tile and kerb-side bollard line.
-        box(x+side*12.4,.169,z+k*.99,1.9,.011,1.9,0xbcb19b);
-      }
     }
   }
 
@@ -292,11 +282,6 @@ export function createWorld(scene) {
           });
           building.service=service;
           buildings.push(building);
-          const plazaZ=armory?4.32:z+9.83;
-          box(x+side*6.8,.168,plazaZ,8.30,.017,2.51,0xa69f8c);
-          for(let edge=-3.5;edge<=3.5;edge+=.70) {
-            box(x+side*6.8+edge,.18,plazaZ, .022,.012,2.50,0xb9b09c);
-          }
         }
 
 
@@ -351,14 +336,18 @@ export function createWorld(scene) {
   blockBox(hx,1.37,hz-4,6.2,2.7,.18,0xb5a584);
   blockBox(hx,1.37,hz+4,6.2,2.7,.18,0xb5a584);
   blockBox(hx+3,1.37,hz,.18,2.7,8,0xb5a584);
+  // Front wall on the west side, with the door into the lounge (north of the central partition).
+  blockBox(hx-3,1.37,hz-1.9,.18,2.7,4.2,0xb5a584);
+  blockBox(hx-3,1.37,hz+2.9,.18,2.7,2.2,0xb5a584);
   for(const side of [-1,1]){
-    blockBox(hx-3,1.37,hz+side*2.42,.18,2.7,3.16,0xb5a584);
     blockBox(hx+side*1.76,1.37,hz,2.42,2.7,.14,0xc4b697);
     blockBox(hx,1.37,hz+side*3.18,.14,2.7,1.62,0xc4b697);
   }
+  box(hx-3.0,2.45,hz+1,.18,.5,1.6,0xb5a584);                                      // lintel over the doorway
+  hingedDoor(hx-3.0,hz+.2,-Math.PI/2,1.6,0x7a4e36,.022,{buildingId:'lajes-home',unitId:'lajes-home:0',id:'lajes-home-door'});
   blockBox(hx,2.77,hz,6.18,.17,8.2,0x77726b);
   volume.push({buildingId:'lajes-home',unitId:'lajes-home:0',x:hx,z:hz,w:5.8,d:7.8,floor:0,ceiling:2.68});
-  facadeText('CASA',94.87,2.34,hz,-Math.PI/2,0x315453,.95,.28);
+  facadeText('CASA',94.87,2.34,hz+1,-Math.PI/2,0x315453,.95,.28);
   blockBox(96.1,.36,43.7,.85,.70,1.76,0x69786c);
   box(96.1,.75,43.7,.86,.09,1.7,0xb8aa88);
   blockBox(99.7,.27,43.6,1.18,.51,1.91,0x88634d);

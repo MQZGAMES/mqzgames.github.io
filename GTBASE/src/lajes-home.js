@@ -41,8 +41,8 @@ export function furnishLajesHome(scene,solid) {
   // Lounge: TV on the dividing wall facing the sofa, a low table, a wall calendar.
   add('box',0x1d1f22,97.9,1.28,44.2,.07,.62,1.1);
   const tvScreen=glow(0x15191d,97.855,1.28,44.2,.02,.52,.98);
-  add('box',0x6f5842,96.95,.2,42.2,.7,.4,.9);                    // table
-  block(96.95,42.2,.7,.9,.4);
+  add('box',0x6f5842,97.1,.2,43.7,.5,.4,.9);                    // table
+  block(97.1,43.7,.5,.9,.4);
   add('box',0xe9dfc7,95.13,1.7,41.3,.03,.34,.26);
   add('box',0x7a3a2b,95.13,1.72,41.3,.032,.08,.26);
 
@@ -83,7 +83,7 @@ export function furnishLajesHome(scene,solid) {
     lights[room]={shade:glow(off,x,2.58,z,.36,.07,.36),x,y:2.5,z,on:false};
   }
   lights.quarto={shade:bedsideShade,x:100.55,y:.9,z:44.4,on:false};
-  for(const [x,y,z,w,d] of /** @type {number[][]} */([[95.12,1.3,42.4,.02,.1],[98.5,1.3,37.12,.1,.02],[97.4,1.3,37.12,.1,.02]])) add('box',0xe6e1d3,x,y,z,w,.16,d);
+  for(const [x,y,z,w,d] of /** @type {number[][]} */([[95.12,1.3,44.7,.02,.1],[98.5,1.3,37.12,.1,.02],[97.4,1.3,37.12,.1,.02]])) add('box',0xe6e1d3,x,y,z,w,.16,d);
 
   // Windows: a glass pane each (daylight, hidden when the curtain is drawn) plus two curtain panels.
   /** @type {{open:number,goal:number,panels:T.Mesh[],pane:T.Mesh,span:number,axis:'x'|'z',base:number}[]} */
@@ -95,7 +95,7 @@ export function furnishLajesHome(scene,solid) {
     const panels=[-1,1].map(()=>add('box',color,x+inside*1.2,y-.02,z,axis==='x'?.05:width*.5,height+.3,axis==='x'?width*.5:.05));
     return {pane,panels,span:width,axis,base:axis==='x'?z:x,open:1,goal:1,anchor:{x:x+inside*1.2,z}};
   }
-  curtains.push(makeWindow(95.17,1.55,43.4,'x',1.1,1.1,0xb5513f));  // lounge, west wall
+  curtains.push(makeWindow(95.17,1.55,43.75,'x',1.1,1.1,0xb5513f));  // lounge, west wall
   curtains.push(makeWindow(100.84,1.55,42.1,'x',1.0,1.1,0x4f7f8c)); // bedroom, east wall
   const kitchenWindow=makeWindow(100.84,1.5,39.0,'x',.9,.9,0xd0b777);
   curtains.push(kitchenWindow);
@@ -114,12 +114,12 @@ export function furnishLajesHome(scene,solid) {
   const say=text=>text;
   /** @type {{id:string,x:number,z:number,reach:number,label:()=>string,use:(hooks:any)=>string}[]} */
   const things=[
-    {id:'sala-light',x:95.45,z:42.4,reach:1.2,label:()=>lights.sala.on?'Apagar a luz da sala':'Acender a luz da sala',use:()=>{setLight('sala',!lights.sala.on);return say(lights.sala.on?'Luz da sala acesa.':'Luz da sala apagada.');}},
+    {id:'sala-light',x:95.45,z:44.65,reach:1.2,label:()=>lights.sala.on?'Apagar a luz da sala':'Acender a luz da sala',use:()=>{setLight('sala',!lights.sala.on);return say(lights.sala.on?'Luz da sala acesa.':'Luz da sala apagada.');}},
     {id:'cozinha-light',x:98.5,z:37.55,reach:1.15,label:()=>lights.cozinha.on?'Apagar a luz da cozinha':'Acender a luz da cozinha',use:()=>{setLight('cozinha',!lights.cozinha.on);return say(lights.cozinha.on?'Luz da cozinha acesa.':'Luz da cozinha apagada.');}},
     {id:'banheiro-light',x:97.4,z:37.55,reach:1.0,label:()=>lights.banheiro.on?'Apagar a luz do banheiro':'Acender a luz do banheiro',use:()=>{setLight('banheiro',!lights.banheiro.on);return say(lights.banheiro.on?'Luz do banheiro acesa.':'Luz do banheiro apagada.');}},
     {id:'abajur',x:100.3,z:44.0,reach:1.2,label:()=>lights.quarto.on?'Apagar o abajur':'Acender o abajur',use:()=>{setLight('quarto',!lights.quarto.on);return say(lights.quarto.on?'Abajur aceso.':'Abajur apagado.');}},
     {id:'tv',x:96.9,z:44.0,reach:1.7,label:()=>tv?'Desligar a TV':'Ligar a TV',use:()=>{tv=!tv;tvScreen.material.color.setHex(tv?0x7fc4f5:0x15191d);return say(tv?'A TV está passando um jogo antigo.':'TV desligada.');}},
-    {id:'cortina-sala',x:95.7,z:43.4,reach:1.3,label:()=>curtains[0].goal?'Fechar a cortina da sala':'Abrir a cortina da sala',use:()=>{curtains[0].goal=curtains[0].goal?0:1;return say(curtains[0].goal?'Cortina aberta.':'Cortina fechada.');}},
+    {id:'cortina-sala',x:95.7,z:43.75,reach:1.3,label:()=>curtains[0].goal?'Fechar a cortina da sala':'Abrir a cortina da sala',use:()=>{curtains[0].goal=curtains[0].goal?0:1;return say(curtains[0].goal?'Cortina aberta.':'Cortina fechada.');}},
     {id:'cortina-quarto',x:100.3,z:42.3,reach:1.3,label:()=>curtains[1].goal?'Fechar a cortina do quarto':'Abrir a cortina do quarto',use:()=>{curtains[1].goal=curtains[1].goal?0:1;return say(curtains[1].goal?'Cortina aberta.':'Cortina fechada.');}},
     {id:'geladeira',x:100.0,z:38.9,reach:1.1,label:()=>cooldown.fridge>0?'Geladeira (vazia por agora)':'Pegar algo na geladeira',use:hooks=>{
       if(cooldown.fridge>0) return say('A geladeira está quase vazia.');

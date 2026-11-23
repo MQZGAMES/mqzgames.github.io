@@ -59,7 +59,18 @@ export function addDistrictBuilding(api,spec) {
       }
       return null;
     };
-    if(random()<.55) foot(0,front+.052,base+.36,w-.5,.72,.022,[shade(color,-.28),shade(color,.22),0x6f685f][Math.floor(random()*3)]);
+    if(random()<.55) {
+      // The painted skirting runs only along solid wall, never across a doorway or shop window.
+      const tint=[shade(color,-.28),shade(color,.22),0x6f685f][Math.floor(random()*3)];
+      const cuts=[];
+      for(let i=0;i<avoid.length;i+=2) cuts.push([avoid[i],avoid[i+1]]);
+      cuts.sort((a,b)=>a[0]-b[0]);
+      let from=left+.25;
+      for(const [start,end] of [...cuts,[right-.25,right-.25]]) {
+        if(start-from>.3) foot((from+start)/2,front+.052,base+.36,start-from,.72,.022,tint);
+        from=Math.max(from,end);
+      }
+    }
     for(let patch=0;patch<(random()<.7?2:1);patch++) {
       const pw=.8+random()*.7,ph=.5+random()*.5,u=spot(pw/2);
       if(u===null) continue;

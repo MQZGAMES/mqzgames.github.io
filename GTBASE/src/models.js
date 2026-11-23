@@ -238,7 +238,7 @@ export function animatePerson(person, dt, speed, aim, gun, punch=0, elevation=0,
   person.shins[0].rotation.set(Math.max(0,swing)*.51,0,0);
   person.shins[1].rotation.set(Math.max(0,-swing)*.51,0,0);
   for(const forearm of person.forearms) forearm.rotation.set(0,0,0);
-  for(const arm of person.arms) arm.position.z=0;
+  person.arms.forEach((arm,i)=>arm.position.set(i?.31:-.31,1.42,0));
   const longGun=gun && person.weapon==='rifle';
   person.arms[0].rotation.set(aim?-Math.PI/2+elevation:-swing*.76,0,0);
   person.arms[1].rotation.set(aim?(longGun?-Math.PI/2+elevation+.12:-1.16):swing*.76,0,aim&&longGun?.42:0);
@@ -255,35 +255,39 @@ export function animatePerson(person, dt, speed, aim, gun, punch=0, elevation=0,
   person.pistol.visible = gun && person.weapon!=='rifle';
   if(person.rifle){
     person.rifle.visible=longGun;
-    if(longGun && !surrender && punch<=0){
-      // Aiming: shouldered. Otherwise low ready: same grip, muzzle pointed down in front of the body.
-      const ready=!aim;
-      const rifle=person.rifle;
+    const rifle=person.rifle;
+    if(longGun && aim && !surrender && punch<=0){
+      // Shouldered: a slight quarter turn of the body, butt in the right shoulder pocket, right hand on the
+      // pistol grip, left hand under the handguard. The rifle counter-turns so it points where the camera aims.
       if(rifle.parent!==person.body) person.body.add(rifle);
-      // Bladed stance: the body turns ~30 degrees, the butt sits in the right shoulder pocket in front of the
-      // chest, the right hand holds the pistol grip and the left hand supports the rifle further forward.
-      // The rifle counter-turns, so it still points where the camera aims.
-      const twist=RIFLE_TWIST;
-      person.body.rotation.y=twist;
-      for(const arm of person.arms) arm.position.z=.12;
-      rifle.rotation.set(-Math.PI/2+(ready?.55:elevation),-twist,0,'YXZ');
-      rifle.scale.setScalar(.9);
-      rifle.position.set(-.12,ready?1.38:1.46,.18).sub(limbVector.set(0,.2*.9,.06*.9).applyEuler(rifle.rotation));
-      const right=pointOnRifle(rifle,0,-.1,-.06);
-      bendLimb(person.arms[0],person.forearms[0],right,.23,.227,[-.65,-1,-.2]);
-      const left=pointOnRifle(rifle,0,ready?-.12:-.2,.02);
-      bendLimb(person.arms[1],person.forearms[1],left,.23,.227,[.4,-1,0]);
-    } else if(person.rifle.parent!==person.forearms[0]){
-      person.forearms[0].add(person.rifle);
-      person.rifle.position.set(0,-.227,.03);
-      person.rifle.rotation.set(0,0,0);
-      person.rifle.scale.setScalar(1);
+      person.body.rotation.y=RIFLE_TWIST;
+      person.arms[0].position.set(-.28,1.42,.06);
+      person.arms[1].position.set(.28,1.42,.06);
+      rifle.rotation.set(-Math.PI/2+elevation,-RIFLE_TWIST,0,'YXZ');
+      rifle.scale.setScalar(RIFLE_SCALE);
+      rifle.position.set(-.04,1.48,.18).sub(limbVector.set(0,.2*RIFLE_SCALE,.06*RIFLE_SCALE).applyEuler(rifle.rotation));
+      bendLimb(person.arms[0],person.forearms[0],pointOnRifle(rifle,0,-.1,-.06),.23,.227,[-.7,-1,-.1]);
+      bendLimb(person.arms[1],person.forearms[1],pointOnRifle(rifle,0,-.14,.02),.23,.227,[.5,-1,-.1]);
+    } else if(longGun && !surrender && punch<=0){
+      // Carried in the right hand by the grip, muzzle forward and down; the body walks straight and the
+      // carrying arm swings only a little.
+      if(rifle.parent!==person.forearms[0]) person.forearms[0].add(rifle);
+      person.arms[0].rotation.set(-.12-swing*.18,0,-.06);
+      person.forearms[0].rotation.set(-.42,0,0);
+      rifle.scale.setScalar(RIFLE_SCALE);
+      rifle.rotation.set(-.62,0,0);
+      rifle.position.set(0,-.227,.0).sub(limbVector.set(0,-.1*RIFLE_SCALE,-.06*RIFLE_SCALE).applyEuler(rifle.rotation));
+    } else if(rifle.parent!==person.forearms[0]){
+      person.forearms[0].add(rifle);
+      rifle.position.set(0,-.227,.03);
+      rifle.rotation.set(0,0,0);
+      rifle.scale.setScalar(1);
     }
   }
 }
 
 const downAxis=new T.Vector3(0,-1,0);
-const RIFLE_TWIST=-.55;
+const RIFLE_TWIST=-.3, RIFLE_SCALE=.75;
 const aimJoint=new T.Vector3(), aimDirection=new T.Vector3(), aimHint=new T.Vector3();
 const limbTarget=new T.Vector3(), limbVector=new T.Vector3();
 const limbRotation=new T.Quaternion();

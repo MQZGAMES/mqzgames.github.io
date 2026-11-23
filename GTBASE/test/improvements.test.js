@@ -253,7 +253,7 @@ test('the Lajes house has lights, curtains and fixtures in all four rooms',()=>{
   for(const room of ['sala','quarto','cozinha','banheiro']) assert.ok(home.lights[room],room);
   assert.equal(home.lights.sala.on,true);
   const hooks={healed:0,flushed:0,heal(n){this.healed+=n;},flush(){this.flushed++;}};
-  const switchPlate=home.nearest({x:95.5,z:42.4});
+  const switchPlate=home.nearest({x:95.5,z:44.65});
   assert.equal(switchPlate.id,'sala-light');
   switchPlate.use(hooks);
   assert.equal(home.lights.sala.on,false);
@@ -286,29 +286,40 @@ test('cars, motorcycles and utility vehicles get different engine voices',()=>{
   assert.ok(Object.values(carModels).some(spec=>/utilit/.test(spec.category)));
 });
 
-test('a shouldered rifle sits in front of the chest with both hands on it, and low ready points down',()=>{
+test('the rifle is shouldered with both hands when aiming and carried in one hand when walking',()=>{
   const scene=new Scene();
   const shooter=character(scene,{});
   shooter.weapon='rifle';
-  for(const [aim,down] of [[true,false],[false,true]]) {
-    animatePerson(shooter,1/60,0,aim,true,0,0);
-    shooter.root.updateMatrixWorld(true);
-    const rifle=shooter.rifle;
-    assert.equal(rifle.parent,shooter.body);
-    const butt=rifle.localToWorld(new Vector3(0,.2,.06)),muzzle=shooter.rifleMuzzle.getWorldPosition(new Vector3());
-    const buttLocal=shooter.body.worldToLocal(butt.clone());
-    assert.ok(buttLocal.z>.16,'the butt is in front of the chest, not inside it: '+buttLocal.z.toFixed(2));
-    assert.ok(muzzle.z>butt.z+.5,'the muzzle points forward');
-    if(down) assert.ok(muzzle.y<butt.y-.3,'low ready points the muzzle down');
-    else assert.ok(Math.abs(muzzle.y-butt.y)<.08,'aimed level');
-    const grips=[rifle.localToWorld(new Vector3(0,-.1,-.06)),rifle.localToWorld(new Vector3(0,aim?-.2:-.12,.02))];
-    shooter.forearms.forEach((forearm,i)=>{
-      const hand=forearm.localToWorld(new Vector3(0,-.227,0));
-      assert.ok(hand.distanceTo(grips[i])<.05,(aim?'aimed':'ready')+' hand '+i+' is '+hand.distanceTo(grips[i]).toFixed(3)+' m from its grip');
-    });
-    for(let y=-.8;y<=.2;y+=.05) {
-      const p=shooter.body.worldToLocal(rifle.localToWorld(new Vector3(0,y,.06)));
-      assert.ok(!(Math.abs(p.x)<.26 && p.z<.16 && p.z>-.16 && p.y>1 && p.y<1.5),'rifle passes through the torso at '+y.toFixed(2));
-    }
+  const rifle=shooter.rifle;
+  // Aiming: on the body, butt in front of the chest, level, both hands on it, never through the torso.
+  animatePerson(shooter,1/60,0,true,true,0,0);
+  shooter.root.updateMatrixWorld(true);
+  assert.equal(rifle.parent,shooter.body);
+  const butt=rifle.localToWorld(new Vector3(0,.2,.06)),muzzle=shooter.rifleMuzzle.getWorldPosition(new Vector3());
+  assert.ok(shooter.body.worldToLocal(butt.clone()).z>.16,'the butt is in front of the chest');
+  assert.ok(muzzle.z>butt.z+.4 && Math.abs(muzzle.y-butt.y)<.08,'aimed forward and level');
+  assert.ok(Math.abs(shooter.body.rotation.y)<.35,'only a slight quarter turn of the body');
+  const grips=[rifle.localToWorld(new Vector3(0,-.1,-.06)),rifle.localToWorld(new Vector3(0,-.14,.02))];
+  shooter.forearms.forEach((forearm,i)=>{
+    const hand=forearm.localToWorld(new Vector3(0,-.227,0));
+    assert.ok(hand.distanceTo(grips[i])<.05,'aimed hand '+i+' is '+hand.distanceTo(grips[i]).toFixed(3)+' m from its grip');
+  });
+  for(let y=-.8;y<=.2;y+=.05) {
+    const p=shooter.body.worldToLocal(rifle.localToWorld(new Vector3(0,y,.06)));
+    assert.ok(!(Math.abs(p.x)<.26 && p.z<.16 && p.z>-.16 && p.y>1 && p.y<1.5),'rifle passes through the torso at '+y.toFixed(2));
+  }
+  // Walking: one hand on the grip, body square to the path, muzzle forward and down, clear of the legs.
+  for(let i=0;i<30;i++) animatePerson(shooter,1/30,4,false,true,0,0);
+  shooter.root.updateMatrixWorld(true);
+  assert.equal(rifle.parent,shooter.forearms[0]);
+  assert.equal(shooter.body.rotation.y,0);
+  const carried=shooter.rifleMuzzle.getWorldPosition(new Vector3()),stock=rifle.localToWorld(new Vector3(0,.2,.06));
+  assert.ok(carried.z>stock.z+.3 && carried.y<stock.y,'muzzle forward and down');
+  assert.ok(carried.y>.15,'the muzzle does not drag on the ground');
+  const hand=shooter.forearms[0].localToWorld(new Vector3(0,-.227,0));
+  assert.ok(hand.distanceTo(rifle.localToWorld(new Vector3(0,-.1,-.06)))<.03,'the right hand holds the grip');
+  for(let y=-.8;y<=.2;y+=.05) {
+    const p=shooter.body.worldToLocal(rifle.localToWorld(new Vector3(0,y,.06)));
+    assert.ok(!(Math.abs(p.x)<.2 && p.z<.16 && p.z>-.16 && p.y>.1 && p.y<1.5),'carried rifle clips the body at '+y.toFixed(2));
   }
 });
